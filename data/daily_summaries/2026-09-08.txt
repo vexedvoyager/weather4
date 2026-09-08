@@ -1,22 +1,29 @@
 === Predict Weather Bot — Daily Summary: 2026-09-08 ===
 Mode: PAPER
 
-Scans run today: 1
+Scans run today: 4
 
-Markets scanned today (total across all scans): 17
-Markets that cleared all eligibility checks: 3
-Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6, Miami: 6, New York: 6
+Markets scanned today (total across all scans): 100
+Markets that cleared all eligibility checks: 25
+Forecast cache coverage by city: Los Angeles: 6
 
-New positions opened today: 3
+New positions opened today: 10
   - Chicago: bought 6x NO — high 87-88°F — at 75c (model said 12% chance, edge score 0.75) [KXHIGHCHI-26SEP08-B87.5]
   - Chicago: bought 9x NO — high 85-86°F — at 53c (model said 25% chance, edge score 0.86) [KXHIGHCHI-26SEP08-B85.5]
   - New York: bought 7x NO — high 82-83°F — at 64c (model said 8% chance, edge score 0.91) [KXHIGHNY-26SEP08-B82.5]
+  - New York: bought 8x NO — high 82-83°F — at 60c (model said 8% chance, edge score 0.93) [KXHIGHNY-26SEP08-B82.5]
+  - Miami: bought 10x NO — high 92-93°F — at 49c (model said 12% chance, edge score 0.74) [KXHIGHMIA-26SEP08-B92.5]
+  - Miami: bought 7x NO — high 90-91°F — at 66c (model said 12% chance, edge score 0.79) [KXHIGHMIA-26SEP08-B90.5]
+  - Austin: bought 6x NO — high 102-103°F — at 74c (model said 7% chance, edge score 0.83) [KXHIGHAUS-26SEP08-B102.5]
+  - Austin: bought 13x NO — high 100-101°F — at 37c (model said 25% chance, edge score 0.78) [KXHIGHAUS-26SEP08-B100.5]
+  - Los Angeles: bought 11x NO — high > 89°F — at 45c (model said 0% chance, edge score 0.70) [KXHIGHLAX-26SEP08-T89]
+  - Los Angeles: bought 11x NO — high > 89°F — at 45c (model said 0% chance, edge score 0.67) [KXHIGHLAX-26SEP08-T89]
 
 Positions settled today: 0
 
 Net P&L settled today: $+0.00
-Total currently deployed (open positions): $13.75 of $50.00 budget
-Open positions right now: 3
+Total currently deployed (open positions): $47.22 of $50.00 budget
+Open positions right now: 10
 
 Last 14 days (daily P&L):      ▅▅▅▅▅▅▅▅▅▅▅▅▅▅
 Last 14 days (cumulative P&L): ▅▅▅▅▅▅▅▅▅▅▅▅▅▅
