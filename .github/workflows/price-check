@@ -1,0 +1,69 @@
+name: Price Check
+
+# The light, frequent tier - reads the forecast cache (written by
+# forecast-refresh.yml) and reacts to current market prices. Runs every
+# 5 minutes, GitHub Actions' documented minimum interval. Since this repo
+# is public, there's no Actions-minutes cost ceiling to worry about here -
+# see IMPROVEMENTS.md for the private-repo cost math that motivated going
+# public in the first place.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: predict-weather-bot-price-check
+  cancel-in-progress: false
+
+jobs:
+  price_check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run price check
+        env:
+          KALSHI_KEY_ID: ${{ secrets.KALSHI_KEY_ID }}
+          KALSHI_PRIVATE_KEY: ${{ secrets.KALSHI_PRIVATE_KEY }}
+        run: python -m src.price_check
+
+      - name: Check for urgent alerts (position mismatch, daily loss limit)
+        id: alerts
+        run: |
+          if python -m src.check_alerts --clear > /tmp/alert_body.txt; then
+            echo "has_alert=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_alert=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open an alert issue if something urgent came up
+        if: steps.alerts.outputs.has_alert == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "🚨 Predict Weather Bot Alert - $(date -u +%Y-%m-%d\ %H:%M\ UTC)" \
+            --body-file /tmp/alert_body.txt
+
+      - name: Regenerate dashboard
+        run: python -m src.generate_dashboard
+
+      - name: Commit updated database, alert state, and dashboard back to repo
+        run: |
+          git config user.name "predict-weather-bot"
+          git config user.email "actions@github.com"
+          mkdir -p data/alerts
+          touch data/alerts/.gitkeep
+          git add data/trades.db data/alerts/ docs/index.html
+          git diff --quiet --cached || git commit -m "Price check $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
