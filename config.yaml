@@ -1,0 +1,100 @@
+# =============================================================================
+# Predict Weather Bot v2.0 — Configuration
+# =============================================================================
+# This is the ONE file you should need to touch regularly. Everything here
+# is plain English settings, not code.
+# =============================================================================
+
+# --- MODE -------------------------------------------------------------------
+# "paper"  = simulated trades only. No real orders. No real money. SAFE DEFAULT.
+# "live"   = real orders placed on your real Kalshi account with real money.
+#
+# Do not switch this to "live" until you've read data/daily_summaries for at
+# least 1-2 weeks and the numbers make sense to you.
+mode: "paper"
+
+# --- CITIES -------------------------------------------------------------------
+# Each city needs a Kalshi series ticker prefix and an NBM station ICAO code.
+# IMPORTANT: station codes are auto-verified at runtime against Kalshi's own
+# market metadata (see src/stations.py) - this list is a starting guess for
+# the series prefix specifically, not gospel. If verification fails for a
+# city, that city is skipped for that run rather than traded on a guess.
+cities:
+  - name: "Chicago"
+    kalshi_series_prefix: "KXHIGHCHI"
+    expected_station: "KMDW"        # Midway, NOT O'Hare
+    timezone: "America/Chicago"
+
+  - name: "New York"
+    kalshi_series_prefix: "KXHIGHNY"
+    expected_station: "KNYC"        # Central Park
+    timezone: "America/New_York"
+
+  - name: "Miami"
+    kalshi_series_prefix: "KXHIGHMIA"
+    expected_station: "KMIA"
+    timezone: "America/New_York"
+
+  - name: "Austin"
+    kalshi_series_prefix: "KXHIGHAUS"
+    expected_station: "KAUS"
+    timezone: "America/Chicago"
+
+  - name: "Los Angeles"
+    kalshi_series_prefix: "KXHIGHLAX"   # best-guess prefix, unverified - see IMPROVEMENTS.md
+    expected_station: "KLAX"
+    timezone: "America/Los_Angeles"
+
+# --- RISK CONTROLS ------------------------------------------------------------
+# These are hard limits. The bot will refuse to exceed them even if the
+# trading logic wants to.
+risk:
+  total_budget_usd: 50.00          # Total dollars ever deployed across all positions
+  max_cost_per_trade_usd: 5.00     # Max spent on any single contract purchase
+  max_positions_per_city: 2        # Concentration limit
+  daily_loss_limit_usd: 10.00      # Stop trading for the day if losses hit this
+  max_new_trades_per_run: 3        # NEW (v4): caps how many trades a single Price
+                                    # Check run can open, even if more are eligible.
+                                    # Without this, the very first successful run
+                                    # deployed 97% of budget in one pass - this
+                                    # spreads deployment out across multiple runs
+                                    # instead.
+
+# --- EDGE THRESHOLDS ------------------------------------------------------------
+edge:
+  min_probability_gap: 0.08        # Model vs market must disagree by at least this much
+  min_composite_score: 0.65        # Composite edge score (0-1) required to trade
+  weights:
+    spread: 0.30
+    volume: 0.20
+    imbalance: 0.25
+    mispricing: 0.25
+
+# --- PROBABILITY MODEL ------------------------------------------------------------
+probability_model:
+  sigma_multiplier: 1.15           # Fat-tail adjustment beyond P10/P90
+  min_forecast_hour: 24            # Skip same-day markets; NBM coverage starts here
+
+# --- OPERATIONS ------------------------------------------------------------
+# v2.0 splits scanning into two tiers, since the forecast and the market
+# price change on very different timescales:
+#
+#   Forecast refresh: NOAA's NBP bulletin (the one with percentile data)
+#   only publishes 6x/day, at irregular hours - see .github/workflows/
+#   forecast-refresh.yml for the exact schedule. This tier re-fetches NBM,
+#   re-verifies stations, and recomputes model probabilities, caching them
+#   to the database.
+#
+#   Price check: runs frequently (every 5 minutes) and only re-fetches
+#   Kalshi's current market price/orderbook against the ALREADY-CACHED
+#   model probability. This is what makes paper trading react to price
+#   movements roughly as often as live trading would, without wastefully
+#   re-fetching a forecast that hasn't changed.
+operations:
+  min_volume_contracts: 10         # Skip markets with less activity than this
+  forecast_cache_max_age_hours: 8  # Treat a cached forecast as stale beyond this
+
+# --- FILES ------------------------------------------------------------
+paths:
+  database: "data/trades.db"
+  daily_summary_dir: "data/daily_summaries"
