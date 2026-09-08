@@ -14,6 +14,7 @@ it does not re-fetch NBM itself.
 import logging
 import sys
 from collections import Counter
+from datetime import datetime, timezone
 
 from src import db, nbm
 from src.config import load_config, resolve_path
@@ -41,6 +42,44 @@ def model_probability_for_market(threshold: dict, pct: dict, sigma_multiplier: f
         return probability_within_range(pct, threshold["floor"], threshold["cap"], sigma_multiplier)
 
 
+def target_forecast_hour(run_id: str, close_time_str: str) -> int | None:
+    """
+    Computes hours from the NBM run time to a SPECIFIC market's close
+    time - not a fixed constant.
+
+    FOUND VIA A REAL PRODUCTION INCIDENT: earlier versions used one fixed
+    "min_forecast_hour" value (24) as the target forecast hour for every
+    market, every run, regardless of what time of day the NBM run itself
+    was issued. That happened to work when the working run was at 01Z
+    (where "24 hours ahead" naturally lines up with tomorrow's forecast),
+    but silently produced zero usable results when a run was at 19Z
+    instead - "24 hours ahead of 19Z" lands somewhere completely
+    different in the bulletin's real forecast ladder. Same fixed number,
+    different real-world meaning depending on run time - caught via a
+    rejection-reason breakdown showing 100% of markets failing at the
+    exact same stage, for every city, uniformly.
+
+    run_id format: "YYYY-MM-DDTHHZ" (as returned by nbm.fetch_latest_bulletin).
+    Returns None if close_time is missing or unparseable - skip the
+    market rather than guess.
+    """
+    if not close_time_str:
+        return None
+    try:
+        close_time = datetime.fromisoformat(close_time_str.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+    try:
+        run_date_str, run_hour_str = run_id.split("T")
+        run_hour = int(run_hour_str.rstrip("Z"))
+        run_dt = datetime.fromisoformat(run_date_str).replace(hour=run_hour, tzinfo=timezone.utc)
+    except (ValueError, IndexError):
+        return None
+
+    return int((close_time - run_dt).total_seconds() // 3600)
+
+
 def run_forecast_refresh(cfg: dict):
     db_path = str(resolve_path(cfg, "database"))
     db.init_db(db_path)
@@ -59,12 +98,6 @@ def run_forecast_refresh(cfg: dict):
 
     cities_refreshed = 0
     markets_cached = 0
-    # DIAGNOSTIC (added after a real incident: cities_refreshed=5 but
-    # markets_cached=0, with zero visible warnings, because every
-    # rejection point in the per-market loop logs at DEBUG level only).
-    # This tallies WHY each market was rejected so a repeat of that
-    # exact situation is immediately diagnosable from the log, instead
-    # of requiring another guess-and-check round.
     rejection_counts = Counter()
 
     for city_cfg in cfg["cities"]:
@@ -102,22 +135,27 @@ def run_forecast_refresh(cfg: dict):
             threshold = extract_threshold(market)
             if threshold is None:
                 rejection_counts["no_usable_strike_info"] += 1
-                logger.debug(
-                    "ticker=%s no usable strike info (strike_type=%r, floor=%r, cap=%r)",
-                    ticker, market.get("strike_type"), market.get("floor_strike"),
-                    market.get("cap_strike"),
-                )
                 continue
 
-            pct = nbm.get_forecast_for_target_hour(
-                parsed_station, cfg["probability_model"]["min_forecast_hour"]
-            )
+            close_time_str = market.get("close_time")
+            hour = target_forecast_hour(run_id, close_time_str)
+            if hour is None:
+                rejection_counts["no_or_unparseable_close_time"] += 1
+                continue
+            if hour < cfg["probability_model"]["min_forecast_hour"]:
+                # Deliberately skipping same-day-ish markets NBM doesn't
+                # reliably cover yet - this is the ORIGINAL intent of
+                # min_forecast_hour, now used as a floor rather than the
+                # lookup target itself.
+                rejection_counts["too_close_same_day_market"] += 1
+                continue
+
+            pct = nbm.get_forecast_for_target_hour(parsed_station, hour)
             if pct is None:
                 rejection_counts["no_nbm_coverage_at_target_hour"] += 1
                 logger.debug(
                     "ticker=%s no NBM coverage at target_hour=%d (available forecast_hours=%s)",
-                    ticker, cfg["probability_model"]["min_forecast_hour"],
-                    parsed_station.get("forecast_hours"),
+                    ticker, hour, parsed_station.get("forecast_hours"),
                 )
                 continue
 
