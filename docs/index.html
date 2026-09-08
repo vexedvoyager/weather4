@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Predict Weather Bot — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #131A24;
+    --surface: #1B2430;
+    --rule: #2B3644;
+    --text: #EDEFF2;
+    --muted: #8A96A3;
+    --gain: #E8A33D;
+    --loss: #4FA8D8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    margin: 0;
+    padding: 0;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 840px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  h1 {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--muted);
+    margin: 0 0 4px;
+  }
+  .hero {
+    margin: 8px 0 24px;
+  }
+  .hero-number {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 3.4rem;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .hero-label {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-top: 4px;
+  }
+  .conditions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin: 20px 0 8px;
+    padding: 16px 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .conditions div {
+    display: flex;
+    flex-direction: column;
+  }
+  .label {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-bottom: 2px;
+  }
+  .value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 500;
+  }
+  section {
+    margin-top: 40px;
+  }
+  section h2 {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--muted);
+    margin: 0 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  th {
+    text-align: left;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 0.8rem;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+  td {
+    padding: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  td:first-child, th:first-child { padding-left: 0; }
+  .gain { color: var(--gain); }
+  .loss { color: var(--loss); }
+  .neutral { color: var(--muted); }
+  .chart-wrap {
+    position: relative;
+    height: 280px;
+    margin-top: 8px;
+  }
+  .brier-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
+  }
+  .brier-grid > div {
+    display: flex;
+    flex-direction: column;
+  }
+  footer {
+    margin-top: 56px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Predict Weather Bot</h1>
+  <div class="hero">
+    <div class="hero-number neutral">$0.00</div>
+    <div class="hero-label">Total settled P&amp;L, 0 trade(s) settled</div>
+  </div>
+
+  <div class="conditions">
+    <div><span class="label">Mode</span><span class="value">PAPER</span></div>
+    <div><span class="label">Deployed</span><span class="value">$13.75 / $50.00</span></div>
+    <div><span class="label">Open positions</span><span class="value">3</span></div>
+    <div><span class="label">Last updated</span><span class="value">2026-09-08 02:41 UTC</span></div>
+  </div>
+
+  <section>
+    <h2>P&amp;L over time</h2>
+    <div class="chart-wrap"><canvas id="pnlChart"></canvas></div>
+  </section>
+
+  <section>
+    <h2>By city</h2>
+    <table>
+      <tr><th>City</th><th>Settled</th><th>Wins</th><th>Losses</th><th>Net P&amp;L</th></tr>
+      <tr><td colspan="5" class="neutral">No settled trades yet.</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Open positions (3)</h2>
+    <table>
+      <tr><th>City</th><th>Contract</th><th>Side</th><th>Position</th><th>Model</th><th>Status</th></tr>
+      
+    <tr>
+      <td>New York</td>
+      <td>high 82-83°F</td>
+      <td>NO</td>
+      <td>7x @ 64&cent;</td>
+      <td>8%</td>
+      <td class="neutral">open</td>
+    </tr>
+    <tr>
+      <td>Chicago</td>
+      <td>high 85-86°F</td>
+      <td>NO</td>
+      <td>9x @ 53&cent;</td>
+      <td>25%</td>
+      <td class="neutral">open</td>
+    </tr>
+    <tr>
+      <td>Chicago</td>
+      <td>high 87-88°F</td>
+      <td>NO</td>
+      <td>6x @ 75&cent;</td>
+      <td>12%</td>
+      <td class="neutral">open</td>
+    </tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Recent settled trades</h2>
+    <table>
+      <tr><th>City</th><th>Contract</th><th>Side</th><th>Position</th><th>Model</th><th>Outcome</th></tr>
+      <tr><td colspan="6" class="neutral">No settled trades yet.</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Model self-audit (Brier score)</h2>
+    <p class="neutral">No settled trades yet - nothing to audit.</p>
+  </section>
+
+  <footer>
+    Paper trading — simulated, no real money at risk. Generated automatically after every Price Check run.
+  </footer>
+</div>
+
+<script>
+const ctx = document.getElementById('pnlChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: ["07-26", "07-27", "07-28", "07-29", "07-30", "07-31", "08-01", "08-02", "08-03", "08-04", "08-05", "08-06", "08-07", "08-08", "08-09", "08-10", "08-11", "08-12", "08-13", "08-14", "08-15", "08-16", "08-17", "08-18", "08-19", "08-20", "08-21", "08-22", "08-23", "08-24", "08-25", "08-26", "08-27", "08-28", "08-29", "08-30", "08-31", "09-01", "09-02", "09-03", "09-04", "09-05", "09-06", "09-07", "09-08"],
+    datasets: [
+      {
+        label: 'Cumulative P&L ($)',
+        data: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        borderColor: '#E8A33D',
+        backgroundColor: 'rgba(232, 163, 61, 0.12)',
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.25,
+      },
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+    },
+    scales: {
+      x: {
+        grid: { color: '#2B3644' },
+        ticks: { color: '#8A96A3', maxTicksLimit: 10 },
+      },
+      y: {
+        grid: { color: '#2B3644' },
+        ticks: { color: '#8A96A3', callback: (v) => '$' + v },
+      },
+    },
+  }
+});
+</script>
+</body>
+</html>
