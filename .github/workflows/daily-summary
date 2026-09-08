@@ -1,0 +1,50 @@
+name: Daily Summary
+
+on:
+  schedule:
+    # 13:00 UTC ≈ 8am Eastern / 7am Central — adjust to whenever you'd
+    # actually check it each morning.
+    - cron: "0 13 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate summary
+        run: python -m src.daily_summary
+
+      - name: Post summary as a GitHub Issue comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATE=$(date -u +%Y-%m-%d)
+          SUMMARY_FILE="data/daily_summaries/${DATE}.txt"
+          if [ -f "$SUMMARY_FILE" ]; then
+            ISSUE_NUM=$(gh issue list --search "Daily Summaries" --json number -q '.[0].number' 2>/dev/null || true)
+            if [ -z "$ISSUE_NUM" ]; then
+              ISSUE_URL=$(gh issue create --title "Daily Summaries" --body "Running log of daily bot summaries. Check here each morning.")
+              ISSUE_NUM=$(basename "$ISSUE_URL")
+            fi
+            gh issue comment "$ISSUE_NUM" --body-file "$SUMMARY_FILE"
+          fi
+
+      - name: Commit summary file back to repo
+        run: |
+          git config user.name "predict-weather-bot"
+          git config user.email "actions@github.com"
+          mkdir -p data/daily_summaries
+          git add data/daily_summaries/
+          git diff --quiet --cached || git commit -m "Daily summary $(date -u +%Y-%m-%d)"
+          git push
