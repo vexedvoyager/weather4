@@ -99,6 +99,7 @@ def run_forecast_refresh(cfg: dict):
     cities_refreshed = 0
     markets_cached = 0
     rejection_counts = Counter()
+    failed_coverage_hours_by_city = {}  # city -> sorted set of hours that failed lookup
 
     for city_cfg in cfg["cities"]:
         city = city_cfg["name"]
@@ -124,6 +125,10 @@ def run_forecast_refresh(cfg: dict):
 
         db.clear_forecast_cache_for_city(db_path, city)
         cities_refreshed += 1
+        logger.info(
+            "city=%s real NBM forecast_hours available this run: %s",
+            city, parsed_station.get("forecast_hours"),
+        )
 
         for market in markets:
             ticker = market.get("ticker")
@@ -153,10 +158,7 @@ def run_forecast_refresh(cfg: dict):
             pct = nbm.get_forecast_for_target_hour(parsed_station, hour)
             if pct is None:
                 rejection_counts["no_nbm_coverage_at_target_hour"] += 1
-                logger.debug(
-                    "ticker=%s no NBM coverage at target_hour=%d (available forecast_hours=%s)",
-                    ticker, hour, parsed_station.get("forecast_hours"),
-                )
+                failed_coverage_hours_by_city.setdefault(city, set()).add(hour)
                 continue
 
             model_prob = model_probability_for_market(
@@ -168,6 +170,8 @@ def run_forecast_refresh(cfg: dict):
 
     if rejection_counts:
         logger.info("Rejection breakdown (why markets weren't cached): %s", dict(rejection_counts))
+    for city, hours in failed_coverage_hours_by_city.items():
+        logger.info("city=%s target hours that had NO coverage: %s", city, sorted(hours))
 
     logger.info(
         "Forecast refresh complete. nbm_run=%s cities_refreshed=%d markets_cached=%d",
