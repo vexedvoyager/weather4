@@ -1,0 +1,25 @@
+=== Predict Weather Bot — Daily Summary: 2026-09-08 ===
+Mode: PAPER
+
+Scans run today: 1
+
+Markets scanned today (total across all scans): 17
+Markets that cleared all eligibility checks: 3
+Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6, Miami: 6, New York: 6
+
+New positions opened today: 3
+  - Chicago: bought 6x NO — high 87-88°F — at 75c (model said 12% chance, edge score 0.75) [KXHIGHCHI-26SEP08-B87.5]
+  - Chicago: bought 9x NO — high 85-86°F — at 53c (model said 25% chance, edge score 0.86) [KXHIGHCHI-26SEP08-B85.5]
+  - New York: bought 7x NO — high 82-83°F — at 64c (model said 8% chance, edge score 0.91) [KXHIGHNY-26SEP08-B82.5]
+
+Positions settled today: 0
+
+Net P&L settled today: $+0.00
+Total currently deployed (open positions): $13.75 of $50.00 budget
+Open positions right now: 3
+
+Last 14 days (daily P&L):      ▅▅▅▅▅▅▅▅▅▅▅▅▅▅
+Last 14 days (cumulative P&L): ▅▅▅▅▅▅▅▅▅▅▅▅▅▅
+  (range: $+0.00 to $+0.00 daily, cumulative now $+0.00)
+
+This is all simulated — no real money is at risk. Once these numbers look sane over a couple of weeks, consider switching config.yaml's `mode` to 'live' with your small risk capital.
