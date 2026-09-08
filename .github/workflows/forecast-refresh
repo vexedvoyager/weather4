@@ -1,0 +1,55 @@
+name: Forecast Refresh
+
+# NBP (the NBM bulletin with percentile data) publishes at 00, 01, 07, 12,
+# 13, 19 UTC - confirmed against NOAA's current (NBM v5.0) service change
+# notice. This is NOT evenly spaced, so the schedule below matches those
+# times directly rather than a generic interval. Each run adds a ~20
+# minute buffer after the nominal publish time to allow for NOAA's own
+# publish lag; if the file still isn't ready, this run skips cleanly and
+# tries again at the next scheduled time (nothing waits or retries
+# in-place - see src/forecast_refresh.py).
+on:
+  schedule:
+    - cron: "20 0 * * *"   # ~20 min after the 00Z run
+    - cron: "20 1 * * *"   # ~20 min after the 01Z run
+    - cron: "20 7 * * *"   # ~20 min after the 07Z run
+    - cron: "20 12 * * *"  # ~20 min after the 12Z run
+    - cron: "20 13 * * *"  # ~20 min after the 13Z run
+    - cron: "20 19 * * *"  # ~20 min after the 19Z run
+  workflow_dispatch: {}
+
+concurrency:
+  group: predict-weather-bot-forecast-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run forecast refresh
+        env:
+          KALSHI_KEY_ID: ${{ secrets.KALSHI_KEY_ID }}
+          KALSHI_PRIVATE_KEY: ${{ secrets.KALSHI_PRIVATE_KEY }}
+        run: python -m src.forecast_refresh
+
+      - name: Commit updated forecast cache back to repo
+        run: |
+          git config user.name "predict-weather-bot"
+          git config user.email "actions@github.com"
+          mkdir -p data/alerts
+          touch data/alerts/.gitkeep
+          git add data/trades.db data/alerts/
+          git diff --quiet --cached || git commit -m "Forecast refresh $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
