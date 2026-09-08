@@ -1,0 +1,26 @@
+name: Check NBM Connectivity
+
+# Manual only. Run this FIRST after any change to src/nbm.py's URL
+# patterns, before trusting Forecast Refresh - see src/check_nbm_connectivity.py
+# for why. No Kalshi credentials needed; this only talks to NOAA.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run connectivity check
+        run: python -m src.check_nbm_connectivity
