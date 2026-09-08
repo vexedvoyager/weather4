@@ -45,19 +45,8 @@ def model_probability_for_market(threshold: dict, pct: dict, sigma_multiplier: f
 def target_forecast_hour(run_id: str, close_time_str: str) -> int | None:
     """
     Computes hours from the NBM run time to a SPECIFIC market's close
-    time - not a fixed constant.
-
-    FOUND VIA A REAL PRODUCTION INCIDENT: earlier versions used one fixed
-    "min_forecast_hour" value (24) as the target forecast hour for every
-    market, every run, regardless of what time of day the NBM run itself
-    was issued. That happened to work when the working run was at 01Z
-    (where "24 hours ahead" naturally lines up with tomorrow's forecast),
-    but silently produced zero usable results when a run was at 19Z
-    instead - "24 hours ahead of 19Z" lands somewhere completely
-    different in the bulletin's real forecast ladder. Same fixed number,
-    different real-world meaning depending on run time - caught via a
-    rejection-reason breakdown showing 100% of markets failing at the
-    exact same stage, for every city, uniformly.
+    time - not a fixed constant. See IMPROVEMENTS.md resolved-issues log
+    for the real production incident that made this necessary.
 
     run_id format: "YYYY-MM-DDTHHZ" (as returned by nbm.fetch_latest_bulletin).
     Returns None if close_time is missing or unparseable - skip the
@@ -99,7 +88,8 @@ def run_forecast_refresh(cfg: dict):
     cities_refreshed = 0
     markets_cached = 0
     rejection_counts = Counter()
-    failed_coverage_hours_by_city = {}  # city -> sorted set of hours that failed lookup
+    failed_coverage_hours_by_city = {}   # city -> set of hours that had NO NBM coverage
+    too_close_hours_by_city = {}         # city -> set of hours rejected by the same-day floor
 
     for city_cfg in cfg["cities"]:
         city = city_cfg["name"]
@@ -148,11 +138,8 @@ def run_forecast_refresh(cfg: dict):
                 rejection_counts["no_or_unparseable_close_time"] += 1
                 continue
             if hour < cfg["probability_model"]["min_forecast_hour"]:
-                # Deliberately skipping same-day-ish markets NBM doesn't
-                # reliably cover yet - this is the ORIGINAL intent of
-                # min_forecast_hour, now used as a floor rather than the
-                # lookup target itself.
                 rejection_counts["too_close_same_day_market"] += 1
+                too_close_hours_by_city.setdefault(city, set()).add(hour)
                 continue
 
             pct = nbm.get_forecast_for_target_hour(parsed_station, hour)
@@ -171,7 +158,10 @@ def run_forecast_refresh(cfg: dict):
     if rejection_counts:
         logger.info("Rejection breakdown (why markets weren't cached): %s", dict(rejection_counts))
     for city, hours in failed_coverage_hours_by_city.items():
-        logger.info("city=%s target hours that had NO coverage: %s", city, sorted(hours))
+        logger.info("city=%s target hours that had NO NBM coverage: %s", city, sorted(hours))
+    for city, hours in too_close_hours_by_city.items():
+        logger.info("city=%s target hours rejected by the same-day floor (min_forecast_hour): %s",
+                    city, sorted(hours))
 
     logger.info(
         "Forecast refresh complete. nbm_run=%s cities_refreshed=%d markets_cached=%d",
