@@ -1,0 +1,36 @@
+=== Predict Weather Bot — Daily Summary: 2026-09-09 ===
+Mode: PAPER
+
+Scans run today: 4
+
+Markets scanned today (total across all scans): 198
+Markets that cleared all eligibility checks: 28
+Forecast cache coverage by city: Los Angeles: 6
+
+New positions opened today: 2
+  - Los Angeles: bought 35x NO — high > 92°F — at 14c (model said 0% chance, edge score 0.79) [KXHIGHLAX-26SEP09-T92]
+  - Los Angeles: bought 500x YES — high < 85°F — at 1c (model said 100% chance, edge score 0.72) [KXHIGHLAX-26SEP09-T85]
+
+Positions settled today: 10
+  - Chicago: high 87-88°F settled yes → LOSS (-4.50 USD after fees) [KXHIGHCHI-26SEP08-B87.5]
+  - Chicago: high 85-86°F settled no → WIN (+4.23 USD after fees) [KXHIGHCHI-26SEP08-B85.5]
+  - New York: high 82-83°F settled no → WIN (+2.52 USD after fees) [KXHIGHNY-26SEP08-B82.5]
+  - New York: high 82-83°F settled no → WIN (+3.20 USD after fees) [KXHIGHNY-26SEP08-B82.5]
+  - Miami: high 92-93°F settled yes → LOSS (-4.90 USD after fees) [KXHIGHMIA-26SEP08-B92.5]
+  - Miami: high 90-91°F settled no → WIN (+2.38 USD after fees) [KXHIGHMIA-26SEP08-B90.5]
+  - Austin: high 102-103°F settled yes → LOSS (-4.44 USD after fees) [KXHIGHAUS-26SEP08-B102.5]
+  - Austin: high 100-101°F settled no → WIN (+8.19 USD after fees) [KXHIGHAUS-26SEP08-B100.5]
+  - Los Angeles: high > 89°F settled yes → LOSS (-4.95 USD after fees) [KXHIGHLAX-26SEP08-T89]
+  - Los Angeles: high > 89°F settled yes → LOSS (-4.95 USD after fees) [KXHIGHLAX-26SEP08-T89]
+
+Net P&L settled today: $-3.22
+Total currently deployed (open positions): $9.90 of $50.00 budget
+Open positions right now: 2
+
+Last 14 days (daily P&L):      █████████████▁
+Last 14 days (cumulative P&L): █████████████▁
+  (range: $-3.22 to $+0.00 daily, cumulative now $-3.22)
+
+This is all simulated — no real money is at risk. Once these numbers look sane over a couple of weeks, consider switching config.yaml's `mode` to 'live' with your small risk capital.
+
+Model self-audit: 10 settled trade(s) so far - need at least 30 before a Brier score reading is meaningful. Too early to draw conclusions.
