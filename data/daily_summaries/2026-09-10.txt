@@ -1,19 +1,22 @@
 === Predict Weather Bot — Daily Summary: 2026-09-10 ===
 Mode: PAPER
 
-Scans run today: 1
+Scans run today: 2
 
-Markets scanned today (total across all scans): 60
-Markets that cleared all eligibility checks: 3
-Forecast cache coverage by city: Los Angeles: 6
+Markets scanned today (total across all scans): 74
+Markets that cleared all eligibility checks: 6
+Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6, Miami: 6, New York: 6
 
-New positions opened today: 0
+New positions opened today: 3
+  - Chicago: bought 5x NO — high 81-82°F — at 85c (model said 2% chance, edge score 0.91) [KXHIGHCHI-26SEP10-B81.5]
+  - Chicago: bought 15x NO — high 79-80°F — at 32c (model said 15% chance, edge score 0.75) [KXHIGHCHI-26SEP10-B79.5]
+  - New York: bought 31x YES — high < 85°F — at 16c (model said 38% chance, edge score 0.78) [KXHIGHNY-26SEP10-T85]
 
 Positions settled today: 0
 
 Net P&L settled today: $+0.00
-Total currently deployed (open positions): $9.90 of $50.00 budget
-Open positions right now: 2
+Total currently deployed (open positions): $23.91 of $50.00 budget
+Open positions right now: 5
 
 Last 14 days (daily P&L):      ████████████▁█
 Last 14 days (cumulative P&L): ████████████▁▁
