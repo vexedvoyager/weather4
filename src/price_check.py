@@ -8,7 +8,7 @@ just the current Kalshi price/orderbook and decides whether to trade.
 
 This is what lets paper trading react to market price movements roughly
 as often as live trading would, without wastefully re-fetching a forecast
-that only changes 6x/day.
+that only changes 4x/day.
 """
 import logging
 import sys
@@ -33,10 +33,10 @@ def run_price_check(cfg: dict):
     broker = PaperBroker() if cfg["mode"] == "paper" else None
 
     # --- Settlement check (v4) -----------------------------------------------
-    # Runs FIRST, before anything else - this is what was entirely missing
-    # through v1-v3. Checks every open position against Kalshi's current
-    # market data and closes out anything that has actually resolved,
-    # freeing up budget/position-count for the rest of this same run.
+    # Runs FIRST, before anything else - checks every open position
+    # against Kalshi's current market data and closes out anything that
+    # has actually resolved, freeing up budget/position-count for the
+    # rest of this same run.
     settle_summary = run_settle_check(cfg, client=client)
     logger.info(
         "Settlement check: checked=%d settled=%d still_open=%d unrecognized=%d",
@@ -92,6 +92,12 @@ def run_price_check(cfg: dict):
     max_forecast_age_hours = cfg["operations"]["forecast_cache_max_age_hours"]
     max_new_trades_per_run = cfg["risk"].get("max_new_trades_per_run")
 
+    # NEW: tracks tickers already held so the bot never buys the same
+    # exact contract twice. Fetched once after settlement (so freshly
+    # closed positions correctly drop out), then updated in-memory as
+    # new trades open during this same run.
+    open_tickers = db.get_open_ticker_set(db_path)
+
     for city_cfg in cfg["cities"]:
         if max_new_trades_per_run and trades_opened >= max_new_trades_per_run:
             logger.info(
@@ -114,6 +120,13 @@ def run_price_check(cfg: dict):
 
             tickers_scanned += 1
             ticker = market.get("ticker")
+
+            if ticker in open_tickers:
+                # Already holding a position on this exact contract -
+                # max_positions_per_city limits how MANY positions a city
+                # can have, but never checked WHICH tickers, so the same
+                # market could be bought again on a later run. Skip it.
+                continue
 
             cached = db.get_cached_forecast(db_path, ticker, max_forecast_age_hours)
             if cached is None:
@@ -183,6 +196,7 @@ def run_price_check(cfg: dict):
                 model_prob, scores["composite"], cfg["mode"],
                 threshold_description=threshold_description,
             )
+            open_tickers.add(ticker)  # prevent a second buy later in this same run
             total_deployed += cost_cents
             trades_opened += 1
             logger.info(
