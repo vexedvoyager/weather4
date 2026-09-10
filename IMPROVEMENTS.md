@@ -132,6 +132,51 @@ paper trading.
 
 ---
 
+### 6. Add "yesterday's P&L" line to the daily summary
+
+**Why:** the daily summary currently only shows today's activity. Once
+positions start settling regularly, a quick "yesterday's net P&L" line
+gives an at-a-glance read on the most recently completed day without
+needing to scroll back through prior summaries.
+
+**Proposed fix:** pull `db.daily_pnl_cents()` for yesterday's date
+(already exists, just needs to be called with the right date) and add a
+line like "Yesterday's net P&L: $+2.24 (2 wins, 1 loss)" near the top of
+the summary, before today's in-progress numbers.
+
+**Priority:** low, easy - small, well-scoped addition to
+`src/daily_summary.py`.
+
+---
+
+### 7. Show the winning bracket/outcome per city once a day's contracts settle
+
+**Why:** once a city's full set of same-day contracts has settled, the
+data already tells us which single bracket actually won (e.g. "85-86°F"
+resolved YES, all others resolved NO) - but nothing currently surfaces
+this. Knowing "what actually happened" in plain terms is more readable
+than inferring it from a list of individual trade outcomes.
+
+**Scope decision:** this is "Option A" from the two choices discussed -
+deriving the winning bracket from Kalshi's own settlement data we
+already have, NOT the literal precise temperature reading (which would
+require a new integration with NWS's official CLI report, e.g. via the
+clilax.com-style sources documented in item #3). Option A needs no new
+data source, just new logic over data already being pulled.
+
+**Proposed fix:** for each city, once all of that day's contracts for a
+given settlement date have a `result`, identify whichever one resolved
+`yes` and display it (e.g. "Chicago: 85-86°F won"). Needs a new query
+grouping settled trades (or, more robustly, all cached markets for that
+date+city, not just ones we happened to trade) by city+date to find the
+YES outcome - worth checking whether we have visibility into contracts
+we *didn't* trade, since the winning bracket might not be one we
+actually bought.
+
+**Priority:** medium - a real quality-of-life improvement to the daily
+summary once enough real settlements are happening to make it useful.
+---
+
 ## Decisions (things considered and deliberately not done)
 
 **Dropped the backtest feature entirely (in v2.0).** After finding that
