@@ -175,8 +175,72 @@ actually bought.
 
 **Priority:** medium - a real quality-of-life improvement to the daily
 summary once enough real settlements are happening to make it useful.
+
 ---
 
+
+### 8. Show which side (YES/NO) was bought in the settled-trades summary line
+
+**Why:** the daily summary's settled section shows the outcome and
+win/loss, but not which side was actually bought - reconstructing that
+requires inferring it from the win/loss logic by hand. Found while
+reviewing a batch of 10 settled trades where every one turned out to be
+a NO position, but nothing in the summary said so directly - it looked
+at first glance like it could have been a meaningful YES-vs-NO pattern
+when it was really just "the bot only bought NO this whole batch."
+
+**Proposed fix:** add the side to each settled-trade line in
+`src/daily_summary.py`, e.g. "Chicago: bought NO on high 87-88°F,
+settled yes → LOSS (-4.50 USD)" - matching the format already used for
+newly-opened positions, which does show the side.
+
+**Priority:** low, easy - a readability fix, not a logic change.
+
+---
+
+### 9. Show more decimal precision for probabilities near 0% or 100%
+
+**Why:** the daily summary displays model confidence as a whole percent
+(`{prob*100:.0f}%`), so a real computed value like 0.3% displays as "0%"
+and 99.7% displays as "100%" - visually indistinguishable from an actual
+broken/degenerate calculation. Found when a Los Angeles trade showed
+"0% chance" and another showed "100% chance" in the same batch, prompting
+a real question about whether the model was behaving correctly (it
+likely was - see item #10 for the more important concern this raised).
+
+**Proposed fix:** for probabilities below ~2% or above ~98%, show one or
+two decimal places instead of rounding to a whole percent, so a genuine
+tail estimate ("0.3%") is visually distinct from something that looks
+suspiciously like a bug.
+
+**Priority:** low, easy - display-only change in `src/daily_summary.py`.
+
+---
+
+### 10. Consider capping model confidence at extreme tails (e.g. 2%-98%)
+
+**Why:** genuinely near-0%/near-100% confidence readings come from the
+probability model extrapolating BEYOND the forecast's actual published
+range (P10-P90) using an assumed normal-tail shape. Real temperature
+distributions can have fatter tails than that assumption captures,
+meaning the model could be systematically overconfident in exactly
+these extreme cases - the same "confident and wrong" failure pattern
+described in the source material's own post-mortem, and the same shape
+of concern raised earlier about the very first batch of trades (item #8
+in the resolved log, the above/below inversion bug, was a different
+issue, but this is the same FAMILY of concern: extreme confidence
+deserves extra scrutiny, not automatic trust).
+
+**Proposed fix:** apply a sanity cap in `src/probability.py` or at the
+point model_prob is computed - e.g. clip to [0.02, 0.98] - so the bot
+never treats an outcome as functionally certain, regardless of what the
+tail extrapolation computes. This is a common practical safeguard in
+real quantitative trading, independent of whether the underlying math is
+"correct."
+
+**Priority:** medium - doesn't block anything today, but directly
+affects position sizing/risk on exactly the trades most likely to be
+wrong in a costly way. Worth doing before ever considering live mode.
 ## Decisions (things considered and deliberately not done)
 
 **Dropped the backtest feature entirely (in v2.0).** After finding that
