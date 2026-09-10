@@ -257,34 +257,37 @@ def get_forecast_for_target_hour(
 ) -> dict | None:
     """
     From a parsed station dict, pull the percentile values closest to
-    target_forecast_hour (the forecast hour corresponding to the Kalshi
-    contract's settlement day).
+    target_forecast_hour that actually has COMPLETE data.
 
-    NBP's forecast-hour spacing is coarser than NBH's (this bulletin
-    covers a longer range with less granularity), so the default
-    tolerance here is wider than the previous NBH-based version used.
-
-    Returns {"p10": val, "p25": val, "p50": val, "p75": val, "p90": val}
-    or None if nothing within tolerance_hours is available, or if any
-    matched value is a missing placeholder (None).
+    CORRECTED: earlier versions checked only the single nearest hour and
+    gave up if that specific column was blank - but MaxT percentiles only
+    print at certain columns, not every step in the ladder. A real
+    production incident showed 4 of 5 cities losing coverage entirely
+    while one succeeded, purely because their nearest hour happened to
+    land on a blank column while the fifth city's didn't. This now tries
+    every candidate hour within tolerance, nearest first, instead of
+    giving up after the first attempt.
     """
     hours = parsed.get("forecast_hours")
     if not hours:
         return None
 
-    best_idx, best_diff = None, None
-    for idx, h in enumerate(hours):
-        diff = abs(h - target_forecast_hour)
-        if best_diff is None or diff < best_diff:
-            best_idx, best_diff = idx, diff
+    candidates = sorted(range(len(hours)), key=lambda i: abs(hours[i] - target_forecast_hour))
 
-    if best_idx is None or best_diff > tolerance_hours:
-        return None
+    for idx in candidates:
+        if abs(hours[idx] - target_forecast_hour) > tolerance_hours:
+            break  # sorted by distance - nothing further is any closer
 
-    out = {}
-    for key in ("p10", "p25", "p50", "p75", "p90"):
-        values = parsed.get(key)
-        if not values or best_idx >= len(values) or values[best_idx] is None:
-            return None
-        out[key] = values[best_idx]
-    return out
+        out = {}
+        complete = True
+        for key in ("p10", "p25", "p50", "p75", "p90"):
+            values = parsed.get(key)
+            if not values or idx >= len(values) or values[idx] is None:
+                complete = False
+                break
+            out[key] = values[idx]
+
+        if complete:
+            return out
+
+    return None
