@@ -171,6 +171,24 @@ def total_deployed_cents(db_path: str) -> int:
         return row["total"]
 
 
+def get_open_ticker_set(db_path: str) -> set:
+    """
+    Returns the set of tickers currently open or partially filled.
+
+    Added after a real incident where the bot bought the SAME contract
+    twice on separate Price Check runs, minutes apart - max_positions_per_city
+    only limited how many total positions a city could have, it never
+    checked whether a specific ticker was already held. This closes that
+    gap: before opening any new trade, its ticker is checked against this
+    set first.
+    """
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT ticker FROM trades WHERE status IN ('open', 'partially_filled')"
+        ).fetchall()
+        return {row["ticker"] for row in rows}
+
+
 def get_open_trade_rows(db_path: str) -> list:
     """
     Returns full rows for every currently-open (or partially-filled)
