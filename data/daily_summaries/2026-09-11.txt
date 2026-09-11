@@ -1,24 +1,32 @@
 === Predict Weather Bot — Daily Summary: 2026-09-11 ===
 Mode: PAPER
 
-Scans run today: 1
+Scans run today: 4
 
-Markets scanned today (total across all scans): 60
-Markets that cleared all eligibility checks: 11
+Markets scanned today (total across all scans): 168
+Markets that cleared all eligibility checks: 36
 Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6
 
 New positions opened today: 0
 
-Positions settled today: 0
+Positions settled today: 8
+  - Chicago: high 81-82°F settled no → WIN (+0.75 USD after fees) [KXHIGHCHI-26SEP10-B81.5]
+  - Chicago: high 79-80°F settled no → WIN (+10.20 USD after fees) [KXHIGHCHI-26SEP10-B79.5]
+  - New York: high < 85°F settled yes → WIN (+26.04 USD after fees) [KXHIGHNY-26SEP10-T85]
+  - New York: high 87-88°F settled no → WIN (+3.44 USD after fees) [KXHIGHNY-26SEP10-B87.5]
+  - Miami: high 92-93°F settled no → WIN (+2.45 USD after fees) [KXHIGHMIA-26SEP10-B92.5]
+  - Miami: high 90-91°F settled yes → LOSS (-4.64 USD after fees) [KXHIGHMIA-26SEP10-B90.5]
+  - Austin: high 99-100°F settled yes → LOSS (-4.92 USD after fees) [KXHIGHAUS-26SEP10-B99.5]
+  - Austin: high 101-102°F settled no → WIN (+0.70 USD after fees) [KXHIGHAUS-26SEP10-B101.5]
 
-Net P&L settled today: $+0.00
-Total currently deployed (open positions): $46.93 of $50.00 budget
-Open positions right now: 10
+Net P&L settled today: $+34.02
+Total currently deployed (open positions): $9.95 of $50.00 budget
+Open positions right now: 2
 
-Last 14 days (daily P&L):      ███████████▅▁█
-Last 14 days (cumulative P&L): ███████████▆▁▁
-  (range: $-9.90 to $+0.00 daily, cumulative now $-13.12)
+Last 14 days (daily P&L):      ▂▂▂▂▂▂▂▂▂▂▂▂▁█
+Last 14 days (cumulative P&L): ▃▃▃▃▃▃▃▃▃▃▃▃▁█
+  (range: $-9.90 to $+34.02 daily, cumulative now $+20.90)
 
 This is all simulated — no real money is at risk. Once these numbers look sane over a couple of weeks, consider switching config.yaml's `mode` to 'live' with your small risk capital.
 
-Model self-audit: 12 settled trade(s) so far - need at least 30 before a Brier score reading is meaningful. Too early to draw conclusions.
+Model self-audit: 20 settled trade(s) so far - need at least 30 before a Brier score reading is meaningful. Too early to draw conclusions.
