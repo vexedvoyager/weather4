@@ -1,0 +1,24 @@
+=== Predict Weather Bot — Daily Summary: 2026-09-11 ===
+Mode: PAPER
+
+Scans run today: 1
+
+Markets scanned today (total across all scans): 60
+Markets that cleared all eligibility checks: 11
+Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6
+
+New positions opened today: 0
+
+Positions settled today: 0
+
+Net P&L settled today: $+0.00
+Total currently deployed (open positions): $46.93 of $50.00 budget
+Open positions right now: 10
+
+Last 14 days (daily P&L):      ███████████▅▁█
+Last 14 days (cumulative P&L): ███████████▆▁▁
+  (range: $-9.90 to $+0.00 daily, cumulative now $-13.12)
+
+This is all simulated — no real money is at risk. Once these numbers look sane over a couple of weeks, consider switching config.yaml's `mode` to 'live' with your small risk capital.
+
+Model self-audit: 12 settled trade(s) so far - need at least 30 before a Brier score reading is meaningful. Too early to draw conclusions.
