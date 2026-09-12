@@ -1,0 +1,28 @@
+=== Predict Weather Bot — Daily Summary: 2026-09-12 ===
+Mode: PAPER
+
+Scans run today: 4
+
+Markets scanned today (total across all scans): 142
+Markets that cleared all eligibility checks: 21
+Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6
+
+New positions opened today: 4
+  - New York: bought 7x NO — high 79-80°F — at 67c (model said 12% chance, edge score 0.95) [KXHIGHNY-26SEP12-B79.5]
+  - New York: bought 9x NO — high 77-78°F — at 51c (model said 25% chance, edge score 0.83) [KXHIGHNY-26SEP12-B77.5]
+  - Miami: bought 9x NO — high 90-91°F — at 54c (model said 25% chance, edge score 0.95) [KXHIGHMIA-26SEP12-B90.5]
+  - Miami: bought 6x NO — high 88-89°F — at 82c (model said 8% chance, edge score 0.93) [KXHIGHMIA-26SEP12-B88.5]
+
+Positions settled today: 0
+
+Net P&L settled today: $+0.00
+Total currently deployed (open positions): $48.64 of $50.00 budget
+Open positions right now: 10
+
+Last 14 days (daily P&L):      ▃▃▃▃▃▃▃▃▃▃▂▁█▃
+Last 14 days (cumulative P&L): ▄▄▄▄▄▄▄▄▄▄▃▁██
+  (range: $-9.90 to $+24.07 daily, cumulative now $+10.95)
+
+This is all simulated — no real money is at risk. Once these numbers look sane over a couple of weeks, consider switching config.yaml's `mode` to 'live' with your small risk capital.
+
+Model self-audit: 22 settled trade(s) so far - need at least 30 before a Brier score reading is meaningful. Too early to draw conclusions.
