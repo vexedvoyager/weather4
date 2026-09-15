@@ -1,16 +1,19 @@
 === Predict Weather Bot — Daily Summary: 2026-09-15 ===
 Mode: PAPER
 
-Scans run today: 4
+Scans run today: 6
 
-Markets scanned today (total across all scans): 192
-Markets that cleared all eligibility checks: 36
+Markets scanned today (total across all scans): 289
+Markets that cleared all eligibility checks: 51
 Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6
 
-New positions opened today: 3
+New positions opened today: 6
   - Miami: bought 8x NO — high 92-93°F — at 62c (model said 7% chance, edge score 0.83) [KXHIGHMIA-26SEP15-B92.5]
   - New York: bought 125x YES — high < 70°F — at 4c (model said 50% chance, edge score 0.93) [KXHIGHNY-26SEP15-T70]
   - New York: bought 11x NO — high 72-73°F — at 45c (model said 8% chance, edge score 0.78) [KXHIGHNY-26SEP15-B72.5]
+  - Chicago: bought 166x YES — high < 71°F — at 3c (model said 97% chance, edge score 0.93) [KXHIGHCHI-26SEP16-T71]
+  - Chicago: bought 6x NO — high 75-76°F — at 80c (model said 0% chance, edge score 0.96) [KXHIGHCHI-26SEP16-B75.5]
+  - Austin: bought 500x YES — high < 96°F — at 1c (model said 100% chance, edge score 0.72) [KXHIGHAUS-26SEP16-T96]
 
 Positions settled today: 6
   - Chicago: high < 72°F settled no → LOSS (-5.00 USD after fees) [KXHIGHCHI-26SEP14-T72]
@@ -21,8 +24,8 @@ Positions settled today: 6
   - Miami: high 92-93°F settled no → WIN (+4.14 USD after fees) [KXHIGHMIA-26SEP14-B92.5]
 
 Net P&L settled today: $-7.63
-Total currently deployed (open positions): $29.25 of $50.00 budget
-Open positions right now: 6
+Total currently deployed (open positions): $44.03 of $50.00 budget
+Open positions right now: 9
 
 Last 14 days (daily P&L):      ▃▃▃▃▃▃▃▂▁█▃▁▃▁
 Last 14 days (cumulative P&L): ▄▄▄▄▄▄▄▃▁██▄▄▂
