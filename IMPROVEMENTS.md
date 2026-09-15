@@ -243,6 +243,38 @@ affects position sizing/risk on exactly the trades most likely to be
 wrong in a costly way. Worth doing before ever considering live mode.
 ## Decisions (things considered and deliberately not done)
 
+---
+### 11. Print the model's raw forecast percentiles in the daily summary
+
+**Why:** extreme readings like "0% chance" or "100% chance" are opaque -
+they're a single number derived from five underlying percentile values
+(P10/P25/P50/P75/P90, the forecast's plausible range from unlikely-low
+to unlikely-high), but those underlying values are computed and then
+discarded, never surfaced anywhere. This makes it impossible to tell,
+just by reading a summary line, whether an extreme confidence reading
+is a legitimate result of the threshold sitting well outside the
+forecast's plausible range, or something actually wrong. Came up
+repeatedly while manually walking through real trades (see the Chicago/
+Austin/LA "0%"/"100%" discussion) - in every case examined, the
+underlying percentiles would have made the reasoning immediately
+obvious without needing to ask.
+
+**Proposed fix:** store the five percentile values alongside model_prob
+in the forecast cache (`src/db.py`'s forecast_cache table) at the point
+they're computed in `src/forecast_refresh.py`, carry them through to the
+trade record the same way `threshold_description` was added, and print
+them in `src/daily_summary.py` for both newly-opened and settled trades,
+e.g.:
+    Chicago: bought 7x NO — high 76-77°F — at 71c (model said 0% chance,
+    edge score 0.97)
+      Forecast: P10=61° P25=64° P50=67° P75=70° P90=73° [ticker]
+
+**Priority:** medium - not blocking anything, but directly supports
+manually auditing trades for the exact "confident and wrong" pattern
+items #9 and #10 are meant to guard against, and real trade data has
+already shown this pattern occurring (see the Chicago/Austin/LA example
+where the extreme-confidence trades were also the ones that lost).
+
 **Dropped the backtest feature entirely (in v2.0).** After finding that
 NOAA doesn't retain the needed forecast bulletin archive beyond about a
 week for free, the feature's original value proposition wasn't
