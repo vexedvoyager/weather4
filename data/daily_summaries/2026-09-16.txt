@@ -1,7 +1,7 @@
 === Predict Weather Bot — Daily Summary: 2026-09-16 ===
 Mode: PAPER
 
-Scans run today: 4
+Scans run today: 6
 
 Markets scanned today (total across all scans): 138
 Markets that cleared all eligibility checks: 32
