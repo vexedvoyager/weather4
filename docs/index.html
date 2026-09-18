@@ -137,15 +137,15 @@
 
   <h1>Predict Weather Bot</h1>
   <div class="hero">
-    <div class="hero-number loss">$-46.42</div>
-    <div class="hero-label">Total settled P&amp;L, 51 trade(s) settled, 43% win rate</div>
+    <div class="hero-number loss">$-55.58</div>
+    <div class="hero-label">Total settled P&amp;L, 54 trade(s) settled, 43% win rate</div>
   </div>
 
   <div class="conditions">
     <div><span class="label">Mode</span><span class="value">PAPER</span></div>
-    <div><span class="label">Deployed</span><span class="value">$47.30 / $50.00</span></div>
-    <div><span class="label">Open positions</span><span class="value">10</span></div>
-    <div><span class="label">Last updated</span><span class="value">2026-09-18 11:50 UTC</span></div>
+    <div><span class="label">Deployed</span><span class="value">$43.00 / $50.00</span></div>
+    <div><span class="label">Open positions</span><span class="value">9</span></div>
+    <div><span class="label">Last updated</span><span class="value">2026-09-18 15:35 UTC</span></div>
   </div>
 
   <section>
@@ -160,10 +160,10 @@
       
         <tr>
           <td>Austin</td>
-          <td>9</td>
+          <td>10</td>
           <td>4</td>
-          <td>5</td>
-          <td class="loss">$-7.09</td>
+          <td>6</td>
+          <td class="loss">$-12.05</td>
         </tr>
         <tr>
           <td>Chicago</td>
@@ -174,10 +174,10 @@
         </tr>
         <tr>
           <td>Los Angeles</td>
+          <td>12</td>
+          <td>2</td>
           <td>10</td>
-          <td>1</td>
-          <td>9</td>
-          <td class="loss">$-43.43</td>
+          <td class="loss">$-47.63</td>
         </tr>
         <tr>
           <td>Miami</td>
@@ -197,10 +197,26 @@
   </section>
 
   <section>
-    <h2>Open positions (10)</h2>
+    <h2>Open positions (9)</h2>
     <table>
       <tr><th>City</th><th>Contract</th><th>Side</th><th>Position</th><th>Model</th><th>Status</th></tr>
       
+    <tr>
+      <td>Los Angeles</td>
+      <td>high < 72°F</td>
+      <td>YES</td>
+      <td>500x @ 1&cent;</td>
+      <td>100%</td>
+      <td class="neutral">open</td>
+    </tr>
+    <tr>
+      <td>Los Angeles</td>
+      <td>high > 79°F</td>
+      <td>NO</td>
+      <td>6x @ 81&cent;</td>
+      <td>0%</td>
+      <td class="neutral">open</td>
+    </tr>
     <tr>
       <td>Miami</td>
       <td>high 85-86°F</td>
@@ -257,30 +273,6 @@
       <td>100%</td>
       <td class="neutral">open</td>
     </tr>
-    <tr>
-      <td>Los Angeles</td>
-      <td>high 79-80°F</td>
-      <td>NO</td>
-      <td>5x @ 84&cent;</td>
-      <td>0%</td>
-      <td class="neutral">open</td>
-    </tr>
-    <tr>
-      <td>Los Angeles</td>
-      <td>high < 75°F</td>
-      <td>YES</td>
-      <td>100x @ 5&cent;</td>
-      <td>100%</td>
-      <td class="neutral">open</td>
-    </tr>
-    <tr>
-      <td>Austin</td>
-      <td>high < 95°F</td>
-      <td>YES</td>
-      <td>62x @ 8&cent;</td>
-      <td>100%</td>
-      <td class="neutral">open</td>
-    </tr>
     </table>
   </section>
 
@@ -289,6 +281,30 @@
     <table>
       <tr><th>City</th><th>Contract</th><th>Side</th><th>Position</th><th>Model</th><th>Outcome</th></tr>
       
+    <tr>
+      <td>Los Angeles</td>
+      <td>high 79-80°F</td>
+      <td>NO</td>
+      <td>5x @ 84&cent;</td>
+      <td>0%</td>
+      <td class="gain">NO &middot; $+0.80</td>
+    </tr>
+    <tr>
+      <td>Los Angeles</td>
+      <td>high < 75°F</td>
+      <td>YES</td>
+      <td>100x @ 5&cent;</td>
+      <td>100%</td>
+      <td class="loss">NO &middot; $-5.00</td>
+    </tr>
+    <tr>
+      <td>Austin</td>
+      <td>high < 95°F</td>
+      <td>YES</td>
+      <td>62x @ 8&cent;</td>
+      <td>100%</td>
+      <td class="loss">NO &middot; $-4.96</td>
+    </tr>
     <tr>
       <td>Miami</td>
       <td>high 90-91°F</td>
@@ -465,30 +481,6 @@
       <td>25%</td>
       <td class="loss">YES &middot; $-4.59</td>
     </tr>
-    <tr>
-      <td>New York</td>
-      <td>high 79-80°F</td>
-      <td>NO</td>
-      <td>7x @ 67&cent;</td>
-      <td>12%</td>
-      <td class="gain">NO &middot; $+2.31</td>
-    </tr>
-    <tr>
-      <td>Los Angeles</td>
-      <td>high < 77°F</td>
-      <td>YES</td>
-      <td>500x @ 1&cent;</td>
-      <td>100%</td>
-      <td class="loss">NO &middot; $-5.00</td>
-    </tr>
-    <tr>
-      <td>Los Angeles</td>
-      <td>high > 84°F</td>
-      <td>NO</td>
-      <td>6x @ 83&cent;</td>
-      <td>0%</td>
-      <td class="gain">NO &middot; $+1.02</td>
-    </tr>
     </table>
   </section>
 
@@ -496,9 +488,9 @@
     <h2>Model self-audit (Brier score)</h2>
     
         <div class="brier-grid">
-          <div><span class="label">Trades audited</span><span class="value">51</span></div>
-          <div><span class="label">Model Brier score</span><span class="value">0.5421</span></div>
-          <div><span class="label">Base rate Brier score</span><span class="value">0.2453</span></div>
+          <div><span class="label">Trades audited</span><span class="value">54</span></div>
+          <div><span class="label">Model Brier score</span><span class="value">0.5676</span></div>
+          <div><span class="label">Base rate Brier score</span><span class="value">0.2445</span></div>
           <div><span class="label">Verdict</span><span class="value loss">NO SKILL</span></div>
         </div>
         <p class="neutral">(early read, 100+ needed for full confidence)</p>
@@ -518,7 +510,7 @@ new Chart(ctx, {
     datasets: [
       {
         label: 'Cumulative P&L ($)',
-        data: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -3.22, -13.12, 10.95, 10.95, 0.31, 0.31, -7.32, -28.57, -48.03, -46.42],
+        data: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -3.22, -13.12, 10.95, 10.95, 0.31, 0.31, -7.32, -28.57, -48.03, -55.58],
         borderColor: '#E8A33D',
         backgroundColor: 'rgba(232, 163, 61, 0.12)',
         borderWidth: 2,
