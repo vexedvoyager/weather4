@@ -1,29 +1,40 @@
 === Predict Weather Bot — Daily Summary: 2026-09-22 ===
 Mode: PAPER
 
-Scans run today: 0
+Scans run today: 4
 
-Markets scanned today (total across all scans): 0
-Markets that cleared all eligibility checks: 0
+Markets scanned today (total across all scans): 140
+Markets that cleared all eligibility checks: 23
 Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6
 
-New positions opened today: 0
+New positions opened today: 10
+  - Chicago: bought 41x YES — high < 62°F — at 12c (model said 94% chance, edge score 0.94) [KXHIGHCHI-26SEP22-T62]
+  - Chicago: bought 7x NO — high 64-65°F — at 70c (model said 1% chance, edge score 0.96) [KXHIGHCHI-26SEP22-B64.5]
+  - Austin: bought 250x YES — high < 95°F — at 2c (model said 100% chance, edge score 0.97) [KXHIGHAUS-26SEP22-T95]
+  - New York: bought 83x YES — high < 63°F — at 6c (model said 38% chance, edge score 0.90) [KXHIGHNY-26SEP22-T63]
+  - Miami: bought 8x NO — high 87-88°F — at 58c (model said 25% chance, edge score 0.85) [KXHIGHMIA-26SEP22-B87.5]
+  - Miami: bought 7x NO — high 85-86°F — at 70c (model said 8% chance, edge score 0.84) [KXHIGHMIA-26SEP22-B85.5]
+  - New York: bought 5x NO — high 67-68°F — at 84c (model said 5% chance, edge score 0.83) [KXHIGHNY-26SEP22-B67.5]
+  - Austin: bought 9x NO — high 99-100°F — at 54c (model said 25% chance, edge score 0.78) [KXHIGHAUS-26SEP22-B99.5]
+  - Los Angeles: bought 125x YES — high < 75°F — at 4c (model said 100% chance, edge score 0.91) [KXHIGHLAX-26SEP22-T75]
+  - Los Angeles: bought 6x NO — high 79-80°F — at 76c (model said 0% chance, edge score 0.81) [KXHIGHLAX-26SEP22-B79.5]
 
-Positions settled today: 0
+Positions settled today: 1
+  - New York: high 72-73°F settled yes → LOSS (-4.41 USD after fees) [KXHIGHNY-26SEP21-B72.5]
 
-Net P&L settled today: $+0.00
-Total currently deployed (open positions): $4.41 of $50.00 budget
-Open positions right now: 1
+Net P&L settled today: $-4.41
+Total currently deployed (open positions): $47.96 of $50.00 budget
+Open positions right now: 10
 
-Last 14 days (daily P&L):      ▃▂▇▄▂▄▂▁▁▂▁█▁▄
+Last 14 days (daily P&L):      ▃▂▇▄▂▄▂▁▁▂▁█▁▃
 Last 14 days (cumulative P&L): ▆▅██▇▇▆▄▂▂▁▃▁▁
-  (range: $-21.25 to $+27.34 daily, cumulative now $-63.44)
+  (range: $-21.25 to $+27.34 daily, cumulative now $-67.85)
 
 This is all simulated — no real money is at risk. Once these numbers look sane over a couple of weeks, consider switching config.yaml's `mode` to 'live' with your small risk capital.
 
-Model self-audit (76 settled trades):
-  Model Brier score:      0.6211  (lower is better)
-  Base rate Brier score:  0.2457
+Model self-audit (77 settled trades):
+  Model Brier score:      0.6133  (lower is better)
+  Base rate Brier score:  0.2449
   Verdict: NO SKILL
   (Early read - 100+ trades needed for real confidence in this verdict)
   ⚠ The model is currently performing no better than guessing the historical base rate. This is exactly the warning sign that led to a full rebuild in the source material this project drew on - worth taking seriously, especially before considering live mode.
