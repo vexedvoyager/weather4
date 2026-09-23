@@ -280,6 +280,48 @@ already shown this pattern occurring (see the Chicago/Austin/LA example
 where the extreme-confidence trades were also the ones that lost).
 
 ---
+
+### 12. Show open positions (with age) in the daily summary
+
+**Why:** the daily summary currently only reports a bare count ("Open
+positions right now: N") - there's no way to tell WHICH positions are
+open, how long they've been open, or spot a position that's stuck versus
+one that's just recently opened. Came up when the user couldn't tell
+whether 3 trades from the previous day were genuinely still pending on
+Kalshi's side or silently stuck due to a settlement-checker bug.
+
+**Proposed fix:** list each open position in `src/daily_summary.py` -
+city, contract description, side, and days/hours since opened (using the
+existing `opened_at` timestamp already stored on each trade) - the same
+way settled and newly-opened positions are already listed individually.
+
+**Priority:** medium - directly needed to diagnose stuck positions
+without having to dig through raw Action logs.
+
+---
+
+### 13. Add per-ticker diagnostic logging to settle_check.py
+
+**Why:** settle_check.py currently only reports aggregate counts
+(checked/settled/still_open/unrecognized) - there's no way to see WHICH
+specific tickers are still open or what Kalshi's raw `result` value
+looked like for them. This makes it hard to distinguish "genuinely still
+pending, Kalshi hasn't posted a result yet" (normal - per Kalshi's own
+rulebook, settlement can happen as late as 10:00 AM ET the day after the
+period ends) from "the checker is silently failing on this specific
+ticker" (a real bug).
+
+**Proposed fix:** log each still-open ticker individually at INFO level,
+including its raw `result` value and how long it's been open, e.g.
+"still_open ticker=KXHIGHCHI-... age=26h raw_result=None" - matching the
+diagnostic-visibility pattern already used successfully in
+forecast_refresh.py's rejection breakdown.
+
+**Priority:** medium - same category as #12, needed to tell "expected
+delay" apart from "real bug" without guessing.
+
+---
+
 ### 14. Fix the "invisible opened trades" daily summary gap
 
 **Why:** cross-referencing 15 days of daily summaries against each
