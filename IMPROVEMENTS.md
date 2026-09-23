@@ -279,6 +279,40 @@ items #9 and #10 are meant to guard against, and real trade data has
 already shown this pattern occurring (see the Chicago/Austin/LA example
 where the extreme-confidence trades were also the ones that lost).
 
+---
+### 14. Fix the "invisible opened trades" daily summary gap
+
+**Why:** cross-referencing 15 days of daily summaries against each
+other (matching settled trades back to their original "opened" entries
+by ticker) found at least 7 real, settled trades that never appeared in
+ANY day's "New positions opened today" list - e.g. KXHIGHCHI-26SEP12-T84,
+KXHIGHAUS-26SEP12-T99, KXHIGHLAX-26SEP12-T84, KXHIGHLAX-26SEP12-T77,
+KXHIGHAUS-26SEP19-T96, and others. These aren't lost or corrupted trades
+- they settled correctly with real P&L - they're just invisible in the
+"opened" reporting.
+
+**Likely root cause:** the Daily Summary workflow runs once per day at a
+fixed UTC time. Any trade opened by Price Check AFTER that snapshot, but
+still on the same UTC calendar day, is never captured: too late for
+that day's summary (already generated), and the next day's summary
+queries for opened_at matching the NEXT date string, which won't match a
+trade whose timestamp is still technically "today." This means the
+"New positions opened today" counts throughout this entire project have
+likely been silently undercounting.
+
+**Proposed fix:** either (a) change the query to a rolling 24-hour
+window instead of a calendar-day match, or (b) have Price Check itself
+append to a same-day running log that Daily Summary reads from, rather
+than querying by date string after the fact. Option (a) is simpler and
+probably sufficient.
+
+**Priority:** medium-high - doesn't affect trading decisions or
+settlement correctness (those are unaffected), but undermines trust in
+one of the summary's basic reported numbers, and made auditing today's
+findings harder than it should have been.
+
+---
+
 **Dropped the backtest feature entirely (in v2.0).** After finding that
 NOAA doesn't retain the needed forecast bulletin archive beyond about a
 week for free, the feature's original value proposition wasn't
