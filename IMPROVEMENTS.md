@@ -217,31 +217,35 @@ suspiciously like a bug.
 
 ---
 
-### 10. Consider capping model confidence at extreme tails (e.g. 2%-98%)
+### 10. Add a hard floor/ceiling on tail-extrapolated probability (REVISED AGAIN - sigma_multiplier approach mathematically cannot work)
 
-**Why:** genuinely near-0%/near-100% confidence readings come from the
-probability model extrapolating BEYOND the forecast's actual published
-range (P10-P90) using an assumed normal-tail shape. Real temperature
-distributions can have fatter tails than that assumption captures,
-meaning the model could be systematically overconfident in exactly
-these extreme cases - the same "confident and wrong" failure pattern
-described in the source material's own post-mortem, and the same shape
-of concern raised earlier about the very first batch of trades (item #8
-in the resolved log, the above/below inversion bug, was a different
-issue, but this is the same FAMILY of concern: extreme confidence
-deserves extra scrutiny, not automatic trust).
+**Why this superseded the sigma_multiplier proposal:** verified by testing
+the actual formula at multiplier values up to 50x - confidence for a
+far-upper-tail threshold asymptotically converges toward exactly 90%
+(the P90 definition itself) and can NEVER go lower, no matter how large
+the multiplier gets. This is a structural property of the extrapolation
+formula, not a tuning problem - increasing sigma_multiplier cannot fix
+the 0-for-12 "below X" failure pattern found in real data, since the
+formula is mathematically incapable of expressing anything below ~90%
+confidence for a far-tail threshold.
 
-**Proposed fix:** apply a sanity cap in `src/probability.py` or at the
-point model_prob is computed - e.g. clip to [0.02, 0.98] - so the bot
-never treats an outcome as functionally certain, regardless of what the
-tail extrapolation computes. This is a common practical safeguard in
-real quantitative trading, independent of whether the underlying math is
-"correct."
+**Proposed fix:** clamp the final output of probability_of_exceeding()
+to a floor/ceiling (proposed starting point: 5%/95%) regardless of how
+far into the tail the threshold sits. Applied once, at the end of the
+function - safe for "between" bracket markets too, since their
+probability is a difference of two calls to this same function, and a
+shared clamp on both sides cancels out correctly in the subtraction
+(consistent with the 83% win rate already observed for extreme-
+confidence brackets, which should be undisturbed by this change).
 
-**Priority:** medium - doesn't block anything today, but directly
-affects position sizing/risk on exactly the trades most likely to be
-wrong in a costly way. Worth doing before ever considering live mode.
-## Decisions (things considered and deliberately not done)
+**Honest caveat:** 5%/95% is an evidence-informed starting guess, not a
+rigorously derived number. Refining it properly needs item #11 (raw
+percentile visibility, to see how far into the tail these thresholds
+actually sit) and more settled trades after this ships to check whether
+the bound is too loose, too tight, or about right.
+
+**Priority:** high - confirmed, quantified failure mode (0/12 at
+claimed 97-100% confidence) with a verified, implementable fix.
 
 ---
 ### 11. Print the model's raw forecast percentiles in the daily summary
