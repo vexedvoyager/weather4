@@ -438,6 +438,35 @@ this item once built, not built separately.
 
 ---
 
+### 16. Update the dashboard to match the v5 daily summary redesign
+
+**Why:** the dashboard (src/generate_dashboard.py, already built and
+wired into Price Check since v4) was designed before item #15's summary
+redesign existed. Without this update, the dashboard and the daily
+summary would tell visibly different stories from the same underlying
+data - the dashboard wouldn't show trade sides, winning brackets, or
+shadow-tracked trades, all of which the summary now will.
+
+**Proposed fix:** carry the same data-model changes from item #15 into
+the dashboard's tables:
+  - Show side (YES/NO) on both open and settled position rows
+  - Show the winning bracket/outcome per city where applicable
+  - Add a shadow-trades section (from item #10) - candidates the
+    confidence floor excluded, clearly separated from real trades,
+    with their eventual real-world outcome once settled
+  - Flag extreme/notable trades the same way the summary does, with
+    raw percentiles (item #11) available for those specifically
+
+**Sequencing note:** this depends on item #15 and #10 actually being
+built first (or built together) - the dashboard change is a
+presentation-layer follow-on to the same underlying data changes, not
+independent work.
+
+**Priority:** medium - not urgent standalone, but should ship in the
+same v5 round as #15/#10 rather than drift out of sync with them.
+
+---
+
 **Dropped the backtest feature entirely (in v2.0).** After finding that
 NOAA doesn't retain the needed forecast bulletin archive beyond about a
 week for free, the feature's original value proposition wasn't
