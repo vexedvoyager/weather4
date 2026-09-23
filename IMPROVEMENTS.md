@@ -217,7 +217,7 @@ suspiciously like a bug.
 
 ---
 
-### 10. Add a hard floor/ceiling on tail-extrapolated probability (REVISED AGAIN - sigma_multiplier approach mathematically cannot work)
+### 10. Add a hard floor/ceiling on tail-extrapolated probability, WITH shadow-tracking of what gets excluded
 
 **Why this superseded the sigma_multiplier proposal:** verified by testing
 the actual formula at multiplier values up to 50x - confidence for a
@@ -244,8 +244,27 @@ percentile visibility, to see how far into the tail these thresholds
 actually sit) and more settled trades after this ships to check whether
 the bound is too loose, too tight, or about right.
 
+**Second half - shadow-tracking (don't ship the clamp blind):** for
+every candidate, compute BOTH the raw (uncapped) probability and the
+clamped probability actually used for trading. Split into three groups:
+  1. Normal trades - clamped value clears the edge threshold, trade as usual
+  2. "Shadow" candidates - the RAW value would have cleared the edge
+     threshold but the clamped value doesn't (exactly the trades this
+     fix is designed to stop). Log ticker, raw probability, side, and
+     price - but open NO real position, spend NO budget.
+  3. Everything else - rejected either way, nothing to track
+
+Once a shadow candidate's market settles (the existing settlement
+checker already runs against real Kalshi data), record whether the RAW
+prediction would have been right. This is the only way to later tell
+whether 5%/95% was too conservative, about right, or should be loosened
+in v6 - without it, the floor fix is a one-way decision with no way to
+check itself against reality, the same discipline the Brier tracker
+already applies to the model as a whole.
+
 **Priority:** high - confirmed, quantified failure mode (0/12 at
-claimed 97-100% confidence) with a verified, implementable fix.
+claimed 97-100% confidence) with a verified, implementable fix, and a
+built-in way to validate the fix itself against future real outcomes.
 
 ---
 ### 11. Print the model's raw forecast percentiles in the daily summary
