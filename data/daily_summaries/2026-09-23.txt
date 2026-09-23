@@ -1,0 +1,39 @@
+=== Predict Weather Bot — Daily Summary: 2026-09-23 ===
+Mode: PAPER
+
+Scans run today: 4
+
+Markets scanned today (total across all scans): 138
+Markets that cleared all eligibility checks: 46
+Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6
+
+New positions opened today: 0
+
+Positions settled today: 10
+  - Chicago: high < 62°F settled no → LOSS (-4.92 USD after fees) [KXHIGHCHI-26SEP22-T62]
+  - Chicago: high 64-65°F settled yes → LOSS (-4.90 USD after fees) [KXHIGHCHI-26SEP22-B64.5]
+  - Austin: high < 95°F settled no → LOSS (-5.00 USD after fees) [KXHIGHAUS-26SEP22-T95]
+  - New York: high < 63°F settled no → LOSS (-4.98 USD after fees) [KXHIGHNY-26SEP22-T63]
+  - Miami: high 87-88°F settled no → WIN (+3.36 USD after fees) [KXHIGHMIA-26SEP22-B87.5]
+  - Miami: high 85-86°F settled no → WIN (+2.10 USD after fees) [KXHIGHMIA-26SEP22-B85.5]
+  - New York: high 67-68°F settled yes → LOSS (-4.20 USD after fees) [KXHIGHNY-26SEP22-B67.5]
+  - Austin: high 99-100°F settled yes → LOSS (-4.86 USD after fees) [KXHIGHAUS-26SEP22-B99.5]
+  - Los Angeles: high < 75°F settled no → LOSS (-5.00 USD after fees) [KXHIGHLAX-26SEP22-T75]
+  - Los Angeles: high 79-80°F settled no → WIN (+1.44 USD after fees) [KXHIGHLAX-26SEP22-B79.5]
+
+Net P&L settled today: $-26.96
+Total currently deployed (open positions): $0.00 of $50.00 budget
+Open positions right now: 0
+
+Last 14 days (daily P&L):      ▃▇▄▃▄▃▁▁▃▂█▁▃▁
+Last 14 days (cumulative P&L): ▆██▇▇▆▅▄▃▂▄▃▂▁
+  (range: $-26.96 to $+27.34 daily, cumulative now $-91.59)
+
+This is all simulated — no real money is at risk. Once these numbers look sane over a couple of weeks, consider switching config.yaml's `mode` to 'live' with your small risk capital.
+
+Model self-audit (87 settled trades):
+  Model Brier score:      0.6062  (lower is better)
+  Base rate Brier score:  0.2426
+  Verdict: NO SKILL
+  (Early read - 100+ trades needed for real confidence in this verdict)
+  ⚠ The model is currently performing no better than guessing the historical base rate. This is exactly the warning sign that led to a full rebuild in the source material this project drew on - worth taking seriously, especially before considering live mode.
