@@ -374,6 +374,70 @@ findings harder than it should have been.
 
 ---
 
+### 15. Daily summary redesign - consolidated spec (fulfills items #6, #7, #8, #9, #11, #12, #13)
+
+**Why a separate item:** items #6 (yesterday's P&L), #7 (winning bracket
+per city), #8 (show trade side on settled lines), #9 (decimal precision
+on extreme %), #11 (raw percentiles), #12 (open positions with age), and
+#13 (settle_check diagnostic logging) were all logged separately over
+several conversations. Implemented independently, they'd likely produce
+a cluttered report - the opposite of what's needed. This item is the
+single, approved design that folds all of them together coherently, so
+v5 has one spec to build against rather than seven independent patches.
+
+**Design principle:** split into an always-present CORE (short, constant
+length) plus CONDITIONAL sections that only appear when something is
+actually worth flagging - length should reflect how much needs
+attention, not grow by default every version.
+
+**Approved layout:**
+
+    === Predict Weather Bot — 2026-09-23 ===
+    Mode: PAPER
+
+    Yesterday: -$10.60 (3W / 4L)  |  Deployed: $14.01/$50  |  Open: 3
+
+    New trades (1):
+      NY: NO on 72-73°F @ 63c (85% conf) [KXHIGHNY-...]
+
+    Settled (7):
+      Chicago: NO on <69°F — WON +$2.10  |  actual: 71-72°F won the day
+      Austin:  NO on >97°F — LOST -$4.98 [!]  |  actual: >97°F won the day
+      ... (one line each)
+
+    Model self-audit (74 trades): Brier 0.6244 vs base rate 0.2471 — NO SKILL
+
+    14-day P&L: [sparkline]  (range, cumulative)
+
+**Conditional sections (only shown when relevant):**
+  - Stuck-position warning: only if something's been open past a sane
+    age threshold (e.g. 36h+ with no result) - fulfills #12/#13, but as
+    an exception flag, not a per-position age list every day
+  - Shadow-trade section (from item #10): only on days where the
+    confidence floor actually excluded a candidate - shown separately
+    from real trades, clearly marked as not real money
+  - Raw percentiles (#11): only printed for trades marked [!] (extreme
+    reading or shadow trade), not on every line
+  - Extreme-probability decimal precision (#9): automatic formatting
+    rule (e.g. <2% or >98% shows one decimal), not a separate section
+
+**Folded into existing lines rather than new sections:**
+  - Winning bracket (#7): appended directly to each settled trade's own
+    line ("actual: 71-72°F won the day") rather than a separate block
+  - Trade side (#8): included in both new-trade and settled-trade lines
+    ("NO on 72-73°F"), matching format already used for new trades
+
+**Known tradeoff, accepted:** a "bad news" day (stuck position, shadow
+exclusions, extreme trades) will produce a longer report than a clean
+day. Length now signals how much needs attention rather than staying
+constant - an accepted design choice, not an oversight.
+
+**Priority:** high - this is the actual build spec for the daily
+summary in v5; items #6-#9 and #11-#13 should be considered fulfilled by
+this item once built, not built separately.
+
+---
+
 **Dropped the backtest feature entirely (in v2.0).** After finding that
 NOAA doesn't retain the needed forecast bulletin archive beyond about a
 week for free, the feature's original value proposition wasn't
