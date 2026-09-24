@@ -1,22 +1,29 @@
 === Predict Weather Bot — Daily Summary: 2026-09-24 ===
 Mode: PAPER
 
-Scans run today: 1
+Scans run today: 5
 
-Markets scanned today (total across all scans): 37
-Markets that cleared all eligibility checks: 5
+Markets scanned today (total across all scans): 200
+Markets that cleared all eligibility checks: 26
 Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6
 
-New positions opened today: 3
+New positions opened today: 10
   - Chicago: bought 166x YES — high < 66°F — at 3c (model said 100% chance, edge score 0.73) [KXHIGHCHI-26SEP24-T66]
   - Chicago: bought 7x NO — high 70-71°F — at 66c (model said 0% chance, edge score 0.96) [KXHIGHCHI-26SEP24-B70.5]
   - Austin: bought 45x YES — high < 96°F — at 11c (model said 100% chance, edge score 0.96) [KXHIGHAUS-26SEP24-T96]
+  - Austin: bought 9x NO — high 98-99°F — at 55c (model said 0% chance, edge score 0.95) [KXHIGHAUS-26SEP24-B98.5]
+  - Los Angeles: bought 15x YES — high < 78°F — at 32c (model said 100% chance, edge score 0.88) [KXHIGHLAX-26SEP24-T78]
+  - Los Angeles: bought 5x NO — high 82-83°F — at 93c (model said 0% chance, edge score 0.97) [KXHIGHLAX-26SEP24-B82.5]
+  - New York: bought 38x YES — high < 66°F — at 13c (model said 50% chance, edge score 0.94) [KXHIGHNY-26SEP24-T66]
+  - New York: bought 6x NO — high 68-69°F — at 74c (model said 8% chance, edge score 0.95) [KXHIGHNY-26SEP24-B68.5]
+  - Miami: bought 7x NO — high 90-91°F — at 65c (model said 15% chance, edge score 0.90) [KXHIGHMIA-26SEP24-B90.5]
+  - Miami: bought 6x NO — high > 91°F — at 77c (model said 10% chance, edge score 0.78) [KXHIGHMIA-26SEP24-T91]
 
 Positions settled today: 0
 
 Net P&L settled today: $+0.00
-Total currently deployed (open positions): $14.55 of $50.00 budget
-Open positions right now: 3
+Total currently deployed (open positions): $47.50 of $50.00 budget
+Open positions right now: 10
 
 Last 14 days (daily P&L):      ▇▄▃▄▃▁▁▃▂█▁▃▁▄
 Last 14 days (cumulative P&L): ██▇▇▆▅▄▃▂▄▃▂▁▁
