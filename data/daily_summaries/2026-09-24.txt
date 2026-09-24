@@ -1,0 +1,32 @@
+=== Predict Weather Bot — Daily Summary: 2026-09-24 ===
+Mode: PAPER
+
+Scans run today: 1
+
+Markets scanned today (total across all scans): 37
+Markets that cleared all eligibility checks: 5
+Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6
+
+New positions opened today: 3
+  - Chicago: bought 166x YES — high < 66°F — at 3c (model said 100% chance, edge score 0.73) [KXHIGHCHI-26SEP24-T66]
+  - Chicago: bought 7x NO — high 70-71°F — at 66c (model said 0% chance, edge score 0.96) [KXHIGHCHI-26SEP24-B70.5]
+  - Austin: bought 45x YES — high < 96°F — at 11c (model said 100% chance, edge score 0.96) [KXHIGHAUS-26SEP24-T96]
+
+Positions settled today: 0
+
+Net P&L settled today: $+0.00
+Total currently deployed (open positions): $14.55 of $50.00 budget
+Open positions right now: 3
+
+Last 14 days (daily P&L):      ▇▄▃▄▃▁▁▃▂█▁▃▁▄
+Last 14 days (cumulative P&L): ██▇▇▆▅▄▃▂▄▃▂▁▁
+  (range: $-26.96 to $+27.34 daily, cumulative now $-81.69)
+
+This is all simulated — no real money is at risk. Once these numbers look sane over a couple of weeks, consider switching config.yaml's `mode` to 'live' with your small risk capital.
+
+Model self-audit (87 settled trades):
+  Model Brier score:      0.6062  (lower is better)
+  Base rate Brier score:  0.2426
+  Verdict: NO SKILL
+  (Early read - 100+ trades needed for real confidence in this verdict)
+  ⚠ The model is currently performing no better than guessing the historical base rate. This is exactly the warning sign that led to a full rebuild in the source material this project drew on - worth taking seriously, especially before considering live mode.
