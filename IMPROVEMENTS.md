@@ -467,6 +467,40 @@ same v5 round as #15/#10 rather than drift out of sync with them.
 
 ---
 
+### 17. Skip the position-mismatch consistency check while in paper mode
+
+**Why:** the consistency check compares the bot's recorded open
+positions against Kalshi's REAL account positions. In paper mode, the
+bot's database shows simulated positions while the real Kalshi account
+has none at all (no real orders are ever placed) - so even once the
+current 401 Unauthorized issue on GET /portfolio/positions is resolved,
+this comparison would likely flag a "mismatch" on nearly every single
+run, since real-zero will essentially never match simulated-nonzero.
+Fixing the 401 alone would trade a silent failure for constant false
+alarms, not add real safety - discovered while discussing whether
+fixing the 401 was actually urgent right now.
+
+**Proposed fix:** skip the consistency check entirely (or reframe what
+it compares) when `cfg["mode"] == "paper"`. The check only becomes
+meaningful once real orders are being placed and a real mismatch would
+mean something - it should activate specifically in live mode.
+
+**Relationship to the still-unresolved 401 issue:** these are separate
+problems. The 401 (GET /portfolio/positions returning Unauthorized
+despite a verified, funded account and a freshly-generated API key -
+see conversation history for the full troubleshooting trail) still
+needs Kalshi's own support to diagnose, since every cause checkable from
+outside their system has been ruled out. This item (#17) should be
+built regardless of how/when the 401 gets resolved, since it's needed
+either way before the consistency check can be trusted in live mode.
+
+**Priority:** low urgency right now (paper trading works fine without
+it), but should be fixed together with or before any future live-mode
+consideration - otherwise the safety check would be actively misleading
+rather than just
+
+---
+
 **Dropped the backtest feature entirely (in v2.0).** After finding that
 NOAA doesn't retain the needed forecast bulletin archive beyond about a
 week for free, the feature's original value proposition wasn't
