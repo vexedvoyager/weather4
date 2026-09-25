@@ -20,6 +20,8 @@ workflow, bypassing GitHub's own scheduler reliability.
 
 ---
 
+---
+
 ### 2. Migrate to Herbie for NBM data fetching
 
 **Why:** Herbie (https://herbie.readthedocs.io) is a real, actively
@@ -63,6 +65,8 @@ confirmed working in production, which reduces the urgency somewhat.
 
 ---
 
+---
+
 ### 3. Document the "CLI" naming discovery and cross-check resource
 
 **Why:** the user found https://www.clilax.com/ during research, which
@@ -86,6 +90,8 @@ referencing this as the confirmed source for the "CLI" naming
 convention. Purely documentation - no logic change needed.
 
 **Priority:** low, easy.
+
+---
 
 ---
 
@@ -114,6 +120,8 @@ remains purely theoretical.
 
 ---
 
+---
+
 ### 5. Confirm Kalshi's real fee structure and model it in settlement P&L
 
 **Why:** `settle_check.py` (new in v4) computes P&L using a simple
@@ -131,6 +139,14 @@ in `src/settle_check.py`.
 paper trading.
 
 ---
+
+---
+
+## Resolved in v5 (this round)
+
+Items #6-#9 and #11-#13 were consolidated into #15's single redesign
+rather than built as seven separate patches - see #15 for the actual
+implementation. All are listed below for the historical record.
 
 ### 6. Add "yesterday's P&L" line to the daily summary
 
@@ -177,7 +193,6 @@ actually bought.
 summary once enough real settlements are happening to make it useful.
 
 ---
-
 
 ### 8. Show which side (YES/NO) was bought in the settled-trades summary line
 
@@ -267,7 +282,10 @@ claimed 97-100% confidence) with a verified, implementable fix, and a
 built-in way to validate the fix itself against future real outcomes.
 
 ---
+
 ### 11. Print the model's raw forecast percentiles in the daily summary
+
+**PARTIALLY fulfilled by v5, not the full original scope - see note below.**
 
 **Why:** extreme readings like "0% chance" or "100% chance" are opaque -
 they're a single number derived from five underlying percentile values
@@ -282,21 +300,23 @@ Austin/LA "0%"/"100%" discussion) - in every case examined, the
 underlying percentiles would have made the reasoning immediately
 obvious without needing to ask.
 
-**Proposed fix:** store the five percentile values alongside model_prob
-in the forecast cache (`src/db.py`'s forecast_cache table) at the point
-they're computed in `src/forecast_refresh.py`, carry them through to the
-trade record the same way `threshold_description` was added, and print
-them in `src/daily_summary.py` for both newly-opened and settled trades,
-e.g.:
-    Chicago: bought 7x NO — high 76-77°F — at 71c (model said 0% chance,
-    edge score 0.97)
-      Forecast: P10=61° P25=64° P50=67° P75=70° P90=73° [ticker]
+**Original proposed fix:** store the five percentile values alongside
+model_prob in the forecast cache, carry them through to the trade
+record, and print the full P10-P90 ladder for flagged trades.
 
-**Priority:** medium - not blocking anything, but directly supports
-manually auditing trades for the exact "confident and wrong" pattern
-items #9 and #10 are meant to guard against, and real trade data has
-already shown this pattern occurring (see the Chicago/Austin/LA example
-where the extreme-confidence trades were also the ones that lost).
+**What v5 actually built instead:** item #10's floor/ceiling work added
+storage for RAW vs. CLAMPED model probability (not the full 5-value
+ladder) - `[!]`-flagged trades in both the daily summary and dashboard
+show "raw model said X%, clamped to Y%", which answers the most common
+version of "why does this look extreme" without the larger schema/
+threading work the full percentile ladder would need.
+
+**Still open:** the full P10-P90 ladder itself is not stored or printed
+anywhere. Worth revisiting if raw-vs-clamped context proves insufficient
+for understanding a specific flagged trade.
+
+**Priority:** low now that the raw/clamped context covers the most
+common need - was medium before v5.
 
 ---
 
