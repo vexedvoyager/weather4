@@ -1,29 +1,23 @@
-=== Predict Weather Bot — Daily Summary: 2026-09-25 ===
+=== Predict Weather Bot — 2026-09-25 ===
 Mode: PAPER
 
-Scans run today: 1
+Yesterday: $+0.00 (0W / 0L)  |  Deployed: $47.50/$50  |  Open: 10
 
-Markets scanned today (total across all scans): 60
-Markets that cleared all eligibility checks: 11
-Forecast cache coverage by city: Austin: 6, Chicago: 6, Los Angeles: 6
+New trades, last 24h (7):
+  Austin: NO on high 98-99°F @ 55c (0.0% conf) [!] [KXHIGHAUS-26SEP24-B98.5]
+  Los Angeles: YES on high < 78°F @ 32c (100.0% conf) [!] [KXHIGHLAX-26SEP24-T78]
+  Los Angeles: NO on high 82-83°F @ 93c (0.0% conf) [!] [KXHIGHLAX-26SEP24-B82.5]
+  New York: YES on high < 66°F @ 13c (50% conf) [KXHIGHNY-26SEP24-T66]
+  New York: NO on high 68-69°F @ 74c (8% conf) [KXHIGHNY-26SEP24-B68.5]
+  Miami: NO on high 90-91°F @ 65c (15% conf) [KXHIGHMIA-26SEP24-B90.5]
+  Miami: NO on high > 91°F @ 77c (10% conf) [KXHIGHMIA-26SEP24-T91]
 
-New positions opened today: 0
+Settled, last 24h (0):
 
-Positions settled today: 0
+Net P&L, last 24h: $+0.00
 
-Net P&L settled today: $+0.00
-Total currently deployed (open positions): $47.50 of $50.00 budget
-Open positions right now: 10
+Model self-audit (87 trades): Brier 0.6062 vs base rate 0.2426 — NO SKILL ⚠
 
-Last 14 days (daily P&L):      ▄▃▄▃▁▁▃▂█▁▃▁▄▄
-Last 14 days (cumulative P&L): █▇▇▆▅▄▃▂▄▃▂▁▁▁
-  (range: $-26.96 to $+27.34 daily, cumulative now $-105.76)
+14-day P&L: ▄▃▄▃▁▁▃▂█▁▃▁▄▄  (range $-27 to $+27, cumulative $-105.76)
 
-This is all simulated — no real money is at risk. Once these numbers look sane over a couple of weeks, consider switching config.yaml's `mode` to 'live' with your small risk capital.
-
-Model self-audit (87 settled trades):
-  Model Brier score:      0.6062  (lower is better)
-  Base rate Brier score:  0.2426
-  Verdict: NO SKILL
-  (Early read - 100+ trades needed for real confidence in this verdict)
-  ⚠ The model is currently performing no better than guessing the historical base rate. This is exactly the warning sign that led to a full rebuild in the source material this project drew on - worth taking seriously, especially before considering live mode.
+Simulated — no real money at risk. Consider live mode once these numbers look sane for a couple of weeks.
