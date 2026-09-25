@@ -7,18 +7,38 @@ real usage, not speculative "nice to haves."
 
 ## Open items
 
-### 1. Monitor whether the 5-minute Price Check schedule is actually reliable
+### 1. External pinger needed for reliable scan frequency (REVISED - real evidence, no longer speculative)
 
-**Why:** GitHub's cron scheduling is documented as best-effort even at
-its minimum 5-minute interval.
+**Why this supersedes the original "wait and monitor" framing:** the
+original version of this item was deliberately low-priority pending
+real observation. That evidence is now in: Price Check, configured for
+a 5-minute schedule, is actually running every 2-5 HOURS in practice -
+a 24-60x shortfall, not minor best-effort slippage.
 
-**Proposed fix (only if this turns out to be a real problem):** an
-external pinger (e.g. cron-job.org) calling GitHub's API to trigger the
-workflow, bypassing GitHub's own scheduler reliability.
+**Root cause confirmed via current GitHub Community reports (not
+speculation):** a well-documented, platform-wide degradation of
+scheduled (`cron`) GitHub Actions workflows began around August 26-27,
+2026, affecting many unrelated repositories simultaneously. Reports
+describe the same progression this project experienced - runs going
+from reliable to hours-late to not firing at all. Critically,
+`workflow_dispatch` (manual or API-triggered runs) continued firing
+instantly and reliably throughout, in every report checked - only the
+automatic `schedule:` trigger degraded. Standard fixes (off-peak cron
+minutes, renaming the workflow file, disabling/re-enabling) did NOT
+reliably restore normal scheduling for affected users.
 
-**Priority:** low until observed data says otherwise.
+**Proposed fix:** an external scheduler (e.g. cron-job.org, free tier)
+that calls GitHub's `workflow_dispatch` API endpoint for Price Check
+directly, on a real schedule - bypassing GitHub's own `schedule:`
+trigger entirely, since that's confirmed to be the specifically
+degraded path. Requires a GitHub Personal Access Token, scoped narrowly
+to triggering workflows, stored on the external service. Keep the
+existing `schedule:` trigger in place as a harmless backup.
 
----
+**Priority:** high for v6 - this isn't a nice-to-have anymore, it's a
+confirmed, currently-ongoing platform issue directly limiting how often
+the bot actually reacts to price movements, with a validated fix ready
+to implement.
 
 ---
 
