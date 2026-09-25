@@ -16,6 +16,7 @@ from pathlib import Path
 
 from src import brier_tracker, db
 from src.config import load_config, resolve_path
+from src.daily_summary import format_probability, _is_extreme, _actual_outcome_note
 
 
 def _get_all_time_stats(db_path: str) -> dict:
@@ -81,6 +82,29 @@ def _get_pnl_series(db_path: str, num_days: int = 45) -> list:
     return series
 
 
+def _get_recent_settled_shadows(db_path: str, limit: int = 15) -> list:
+    with db.get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM shadow_trades WHERE status = 'settled' ORDER BY settled_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def _shadow_row_html(s: dict) -> str:
+    pnl = s["would_have_pnl_cents"] or 0
+    pnl_class = "gain" if pnl > 0 else ("loss" if pnl < 0 else "neutral")
+    description = s.get("threshold_description") or s["ticker"]
+    return f"""
+    <tr>
+      <td>{s['city']}</td>
+      <td>{description}</td>
+      <td>{s['side'].upper()}</td>
+      <td>raw {format_probability(s['raw_prob'])} / clamped {format_probability(s['clamped_prob'])}</td>
+      <td class="{pnl_class}">{s['outcome'].upper() if s['outcome'] else '—'} &middot; {_fmt_usd(pnl)}</td>
+    </tr>"""
+
+
 def _fmt_usd(cents: int) -> str:
     return f"${cents/100:+,.2f}" if cents != 0 else "$0.00"
 
@@ -88,19 +112,22 @@ def _fmt_usd(cents: int) -> str:
 def _trade_row_html(t: dict, settled: bool) -> str:
     description = t.get("threshold_description") or t["ticker"]
     side_label = t["side"].upper()
+    flag = ' <span class="flag">[!]</span>' if _is_extreme(t["forecast_prob"]) else ""
     if settled:
         pnl = t["pnl_cents"] or 0
         pnl_class = "gain" if pnl > 0 else ("loss" if pnl < 0 else "neutral")
-        outcome_col = f'<td class="{pnl_class}">{t["outcome"].upper()} &middot; {_fmt_usd(pnl)}</td>'
+        note = _actual_outcome_note(description, t["outcome"])
+        note_html = f'<br><span class="neutral" style="font-size:0.75rem">{note}</span>' if note else ""
+        outcome_col = f'<td class="{pnl_class}">{t["outcome"].upper()} &middot; {_fmt_usd(pnl)}{note_html}</td>'
     else:
         outcome_col = '<td class="neutral">open</td>'
     return f"""
     <tr>
       <td>{t['city']}</td>
-      <td>{description}</td>
+      <td>{description}{flag}</td>
       <td>{side_label}</td>
       <td>{t['count']}x @ {t['entry_price_cents']}&cent;</td>
-      <td>{t['forecast_prob']*100:.0f}%</td>
+      <td>{format_probability(t['forecast_prob'])}</td>
       {outcome_col}
     </tr>"""
 
@@ -112,6 +139,12 @@ def generate_dashboard_html(cfg: dict, db_path: str) -> str:
     recent_settled = _get_recent_settled(db_path)
     pnl_series = _get_pnl_series(db_path)
     brier = brier_tracker.compute_brier_summary(db_path)
+
+    # v5: shadow trades (candidates the confidence floor/ceiling excluded
+    # from real trading - see IMPROVEMENTS.md item #10)
+    shadow_pending = db.get_pending_shadow_trades(db_path)
+    shadow_recent_settled = _get_recent_settled_shadows(db_path)
+    shadow_alltime = db.get_shadow_trade_summary(db_path)
 
     total_deployed = db.total_deployed_cents(db_path)
     open_count = db.count_open_trades(db_path)
@@ -151,6 +184,18 @@ def generate_dashboard_html(cfg: dict, db_path: str) -> str:
         '<tr><td colspan="6" class="neutral">No open positions.</td></tr>'
     settled_rows = "".join(_trade_row_html(t, settled=True) for t in recent_settled) or \
         '<tr><td colspan="6" class="neutral">No settled trades yet.</td></tr>'
+
+    # --- Shadow trades section (v5) -----------------------------------------------
+    shadow_rows = "".join(_shadow_row_html(s) for s in shadow_recent_settled) or \
+        '<tr><td colspan="5" class="neutral">No shadow trades settled yet.</td></tr>'
+    if shadow_alltime["n"] > 0:
+        shadow_summary_line = (
+            f"All-time: {shadow_alltime['n']} settled, {shadow_alltime['wins']}W/"
+            f"{shadow_alltime['losses']}L, would-have net {_fmt_usd(shadow_alltime['total_pnl_cents'])}"
+            f" &middot; {len(shadow_pending)} still pending"
+        )
+    else:
+        shadow_summary_line = f"{len(shadow_pending)} pending, none settled yet"
 
     # --- Brier section -----------------------------------------------------------
     if brier["n"] == 0:
@@ -286,6 +331,7 @@ def generate_dashboard_html(cfg: dict, db_path: str) -> str:
   .gain {{ color: var(--gain); }}
   .loss {{ color: var(--loss); }}
   .neutral {{ color: var(--muted); }}
+  .flag {{ color: var(--gain); font-size: 0.75rem; font-weight: 600; }}
   .chart-wrap {{
     position: relative;
     height: 280px;
@@ -351,6 +397,15 @@ def generate_dashboard_html(cfg: dict, db_path: str) -> str:
     <table>
       <tr><th>City</th><th>Contract</th><th>Side</th><th>Position</th><th>Model</th><th>Outcome</th></tr>
       {settled_rows}
+    </table>
+  </section>
+
+  <section>
+    <h2>Shadow trades <span class="neutral" style="font-size:0.8rem;font-weight:400">(excluded by the confidence floor/ceiling — not real money)</span></h2>
+    <p class="neutral" style="margin: 4px 0 12px">{shadow_summary_line}</p>
+    <table>
+      <tr><th>City</th><th>Contract</th><th>Side</th><th>Model (raw/clamped)</th><th>Would-have outcome</th></tr>
+      {shadow_rows}
     </table>
   </section>
 

@@ -11,8 +11,32 @@ beyond P10/P90 rather than assuming a plain normal distribution.
 We do the same here: linear interpolation between published percentiles,
 and a normal-tail extrapolation beyond P10/P90 with a sigma multiplier to
 account for real temperature distributions being fatter-tailed than Gaussian.
+
+v5 ADDITION - a hard floor/ceiling on tail-extrapolated probability:
+real trade data (87 settled trades) found single-threshold "below X"
+markets in the far upper tail going 0-for-12 despite the model claiming
+95-100% confidence. Investigation showed increasing sigma_multiplier
+CANNOT fix this - the extrapolation formula mathematically converges
+toward the P90/P10 value itself as a limit, no matter how large the
+multiplier gets (verified: even a 50x multiplier only moved a real
+example from ~97% to ~94%). The fix is a hard clamp on the output
+instead: PROBABILITY_FLOOR/PROBABILITY_CEILING below.
+
+Every caller gets the clamped value by default (clamp=True) - that's
+what should drive real trading decisions everywhere. clamp=False exposes
+the raw, unclamped computation for shadow-tracking: recording what the
+bot WOULD have traded under the old logic, without spending real budget,
+so the floor/ceiling choice itself can be validated against real
+outcomes over time (see src/price_check.py's shadow-trade logic).
 """
 import math
+
+# Starting bounds - evidence-informed, not rigorously derived (see
+# IMPROVEMENTS.md item #10 for the full reasoning and honest caveat).
+# Refining these needs item #11 (raw percentile visibility) and more
+# settled trades after this ships.
+PROBABILITY_FLOOR = 0.05
+PROBABILITY_CEILING = 0.95
 
 
 def _std_normal_cdf(z: float) -> float:
@@ -55,12 +79,17 @@ def _std_normal_ppf(p: float) -> float:
 
 
 def probability_of_exceeding(
-    percentiles: dict, threshold: float, sigma_multiplier: float = 1.15
+    percentiles: dict, threshold: float, sigma_multiplier: float = 1.15,
+    clamp: bool = True,
 ) -> float:
     """
     percentiles: {"p10": float, "p25": float, "p50": float, "p75": float, "p90": float}
     threshold: the temperature the Kalshi contract strikes on
     sigma_multiplier: fat-tail adjustment applied beyond P10/P90
+    clamp: if True (default), the result is bounded to
+        [PROBABILITY_FLOOR, PROBABILITY_CEILING] - use this for anything
+        driving a real trading decision. Pass False only to inspect the
+        raw, unclamped computation (e.g. for shadow-tracking).
 
     Returns P(actual temperature >= threshold), in [0, 1].
 
@@ -73,6 +102,17 @@ def probability_of_exceeding(
         nearest published percentile, with its implied local sigma scaled
         by sigma_multiplier to fatten the tail versus a naive Gaussian.
     """
+    raw = _probability_of_exceeding_raw(percentiles, threshold, sigma_multiplier)
+    if not clamp:
+        return raw
+    return round(min(max(raw, PROBABILITY_FLOOR), PROBABILITY_CEILING), 6)
+
+
+def _probability_of_exceeding_raw(
+    percentiles: dict, threshold: float, sigma_multiplier: float = 1.15
+) -> float:
+    """The unclamped computation - see probability_of_exceeding() for the
+    clamped version everything else should use."""
     p10, p25, p50, p75, p90 = (
         percentiles["p10"], percentiles["p25"], percentiles["p50"],
         percentiles["p75"], percentiles["p90"],
@@ -115,15 +155,21 @@ def probability_of_exceeding(
 
 
 def probability_within_range(
-    percentiles: dict, floor: float, cap: float, sigma_multiplier: float = 1.15
+    percentiles: dict, floor: float, cap: float, sigma_multiplier: float = 1.15,
+    clamp: bool = True,
 ) -> float:
     """
     For Kalshi "between" markets (a temperature bucket, e.g. 78-80F), the
     contract pays out on P(floor <= temperature <= cap), not a simple
     exceeds/doesn't-exceed. This is P(exceed floor) - P(exceed cap).
+
+    clamp: passed through to both underlying probability_of_exceeding()
+        calls. A shared clamp on both sides is safe here - if both raw
+        values would clamp to the same bound, the difference correctly
+        comes out as ~0, rather than producing a nonsensical result.
     """
     if cap < floor:
         raise ValueError(f"cap ({cap}) must be >= floor ({floor})")
-    p_exceed_floor = probability_of_exceeding(percentiles, floor, sigma_multiplier)
-    p_exceed_cap = probability_of_exceeding(percentiles, cap, sigma_multiplier)
+    p_exceed_floor = probability_of_exceeding(percentiles, floor, sigma_multiplier, clamp=clamp)
+    p_exceed_cap = probability_of_exceeding(percentiles, cap, sigma_multiplier, clamp=clamp)
     return round(max(0.0, p_exceed_floor - p_exceed_cap), 6)

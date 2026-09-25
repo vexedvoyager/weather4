@@ -26,20 +26,33 @@ from src.stations import verify_station
 logger = logging.getLogger("forecast_refresh")
 
 
-def model_probability_for_market(threshold: dict, pct: dict, sigma_multiplier: float) -> float:
+def model_probability_for_market(threshold: dict, pct: dict, sigma_multiplier: float) -> dict:
     """
     Computes model probability for a market's threshold. "below" markets
     correctly use the complement of "probability of exceeding" - see
     IMPROVEMENTS.md's resolved-issues log for the real bug this fixed.
+
+    Returns {"clamped": float, "raw": float} - the clamped value is what
+    drives real trading decisions everywhere; the raw value is kept
+    alongside for shadow-tracking (see src/price_check.py and
+    IMPROVEMENTS.md item #10), so the floor/ceiling choice can eventually
+    be checked against what would have happened without it.
     """
     if threshold["kind"] == "single":
-        p_exceeds = probability_of_exceeding(pct, threshold["value"], sigma_multiplier)
+        p_exceeds_clamped = probability_of_exceeding(pct, threshold["value"], sigma_multiplier, clamp=True)
+        p_exceeds_raw = probability_of_exceeding(pct, threshold["value"], sigma_multiplier, clamp=False)
         if threshold["direction"] == "above":
-            return p_exceeds
+            return {"clamped": p_exceeds_clamped, "raw": p_exceeds_raw}
         else:  # "below"
-            return round(1 - p_exceeds, 6)
+            return {"clamped": round(1 - p_exceeds_clamped, 6), "raw": round(1 - p_exceeds_raw, 6)}
     else:  # "between"
-        return probability_within_range(pct, threshold["floor"], threshold["cap"], sigma_multiplier)
+        clamped = probability_within_range(
+            pct, threshold["floor"], threshold["cap"], sigma_multiplier, clamp=True
+        )
+        raw = probability_within_range(
+            pct, threshold["floor"], threshold["cap"], sigma_multiplier, clamp=False
+        )
+        return {"clamped": clamped, "raw": raw}
 
 
 def target_forecast_hour(run_id: str, close_time_str: str) -> int | None:
@@ -148,11 +161,14 @@ def run_forecast_refresh(cfg: dict):
                 failed_coverage_hours_by_city.setdefault(city, set()).add(hour)
                 continue
 
-            model_prob = model_probability_for_market(
+            probs = model_probability_for_market(
                 threshold, pct, cfg["probability_model"]["sigma_multiplier"]
             )
             description = describe_threshold(threshold)
-            db.upsert_forecast_cache(db_path, ticker, city, model_prob, run_id, description)
+            db.upsert_forecast_cache(
+                db_path, ticker, city, probs["clamped"], run_id, description,
+                raw_model_prob=probs["raw"],
+            )
             markets_cached += 1
 
     if rejection_counts:

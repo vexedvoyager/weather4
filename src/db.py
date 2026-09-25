@@ -46,7 +46,26 @@ CREATE TABLE IF NOT EXISTS forecast_cache (
     model_prob REAL NOT NULL,
     nbm_run_id TEXT NOT NULL,
     cached_at TEXT NOT NULL,
-    threshold_description TEXT
+    threshold_description TEXT,
+    raw_model_prob REAL
+);
+
+CREATE TABLE IF NOT EXISTS shadow_trades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL,
+    city TEXT NOT NULL,
+    side TEXT NOT NULL CHECK(side IN ('yes', 'no')),
+    raw_prob REAL NOT NULL,
+    clamped_prob REAL NOT NULL,
+    price_cents INTEGER NOT NULL,
+    threshold_description TEXT,
+    composite_edge_score REAL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending', 'settled')),
+    outcome TEXT CHECK(outcome IN ('yes', 'no', 'void', NULL)),
+    would_have_pnl_cents INTEGER,
+    detected_at TEXT NOT NULL,
+    settled_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS scan_log (
@@ -95,6 +114,7 @@ def _migrate_add_missing_columns(conn):
     migrations = [
         ("trades", "threshold_description", "TEXT"),
         ("forecast_cache", "threshold_description", "TEXT"),
+        ("forecast_cache", "raw_model_prob", "REAL"),
     ]
     for table, column, col_type in migrations:
         existing_columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
@@ -201,6 +221,37 @@ def get_open_trade_rows(db_path: str) -> list:
         return [dict(r) for r in rows]
 
 
+def get_trades_opened_since(db_path: str, cutoff_iso: str) -> list:
+    """
+    v5 FIX for a real reporting gap: the daily summary used to match
+    opened_at against a calendar-day string prefix (LIKE 'YYYY-MM-DD%').
+    Since Daily Summary runs once per day at a fixed time, any trade
+    opened AFTER that snapshot but still the same UTC calendar day was
+    never captured by ANY day's summary - confirmed by cross-referencing
+    15 days of real summaries against settled trades, finding at least 7
+    real trades that never appeared in any "opened" list. This uses a
+    rolling window from an exact timestamp instead, so nothing falls
+    through a calendar-day boundary gap.
+    """
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM trades WHERE opened_at >= ? ORDER BY opened_at",
+            (cutoff_iso,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_trades_settled_since(db_path: str, cutoff_iso: str) -> list:
+    """See get_trades_opened_since() - same rolling-window fix, applied
+    to settlement reporting too."""
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM trades WHERE settled_at >= ? ORDER BY settled_at",
+            (cutoff_iso,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
 def daily_pnl_cents(db_path: str, date_str: str) -> int:
     with get_connection(db_path) as conn:
         row = conn.execute(
@@ -216,33 +267,43 @@ def daily_pnl_cents(db_path: str, date_str: str) -> int:
 
 def upsert_forecast_cache(
     db_path: str, ticker: str, city: str, model_prob: float, nbm_run_id: str,
-    threshold_description: str = None,
+    threshold_description: str = None, raw_model_prob: float = None,
 ):
+    """
+    model_prob: the CLAMPED probability (see src/probability.py) - this is
+        what drives real trading decisions.
+    raw_model_prob: the unclamped computation, kept alongside for
+        shadow-tracking (see src/price_check.py) - lets us compare what
+        the bot WOULD have done under the old, unclamped logic against
+        what it actually does now, without spending real budget.
+    """
     with get_connection(db_path) as conn:
         conn.execute(
             """
             INSERT INTO forecast_cache
-                (ticker, city, model_prob, nbm_run_id, cached_at, threshold_description)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (ticker, city, model_prob, nbm_run_id, cached_at,
+                 threshold_description, raw_model_prob)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(ticker) DO UPDATE SET
                 model_prob = excluded.model_prob,
                 nbm_run_id = excluded.nbm_run_id,
                 cached_at = excluded.cached_at,
-                threshold_description = excluded.threshold_description
+                threshold_description = excluded.threshold_description,
+                raw_model_prob = excluded.raw_model_prob
             """,
             (ticker, city, model_prob, nbm_run_id,
-             datetime.now(timezone.utc).isoformat(), threshold_description),
+             datetime.now(timezone.utc).isoformat(), threshold_description, raw_model_prob),
         )
         conn.commit()
 
 
 def get_cached_forecast(db_path: str, ticker: str, max_age_hours: float) -> dict | None:
     """Returns {"model_prob": float, "nbm_run_id": str, "cached_at": str,
-    "threshold_description": str|None} if a fresh-enough cached forecast
-    exists for this ticker, else None."""
+    "threshold_description": str|None, "raw_model_prob": float|None} if a
+    fresh-enough cached forecast exists for this ticker, else None."""
     with get_connection(db_path) as conn:
         row = conn.execute(
-            "SELECT model_prob, nbm_run_id, cached_at, threshold_description "
+            "SELECT model_prob, nbm_run_id, cached_at, threshold_description, raw_model_prob "
             "FROM forecast_cache WHERE ticker = ?",
             (ticker,),
         ).fetchone()
@@ -258,6 +319,7 @@ def get_cached_forecast(db_path: str, ticker: str, max_age_hours: float) -> dict
     return {
         "model_prob": row["model_prob"], "nbm_run_id": row["nbm_run_id"],
         "cached_at": row["cached_at"], "threshold_description": row["threshold_description"],
+        "raw_model_prob": row["raw_model_prob"],
     }
 
 
@@ -331,3 +393,104 @@ def log_scan(
             "POSITION MISMATCH db_open=%d live_open=%d — investigate before trusting counts",
             db_open_count, live_open_count,
         )
+
+
+# --- Shadow trades (v5) -----------------------------------------------------
+# Candidates the confidence floor/ceiling (src/probability.py) excluded from
+# real trading, but that the OLD unclamped logic would have traded. Tracked
+# with zero real budget spent, so the floor/ceiling choice can be validated
+# against real settlement outcomes over time - see IMPROVEMENTS.md item #10.
+
+def has_pending_shadow_trade(db_path: str, ticker: str) -> bool:
+    """Prevents re-logging the same still-eligible shadow candidate on
+    every 5-minute Price Check run - only the first detection is recorded."""
+    with get_connection(db_path) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM shadow_trades WHERE ticker = ? AND status = 'pending'",
+            (ticker,),
+        ).fetchone()
+        return row is not None
+
+
+def insert_shadow_trade(
+    db_path: str, ticker: str, city: str, side: str, raw_prob: float,
+    clamped_prob: float, price_cents: int, threshold_description: str = None,
+    composite_edge_score: float = None,
+) -> int:
+    with get_connection(db_path) as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO shadow_trades
+                (ticker, city, side, raw_prob, clamped_prob, price_cents,
+                 threshold_description, composite_edge_score, detected_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (ticker, city, side, raw_prob, clamped_prob, price_cents,
+             threshold_description, composite_edge_score,
+             datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def get_pending_shadow_trades(db_path: str) -> list:
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM shadow_trades WHERE status = 'pending'"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def settle_shadow_trade(db_path: str, shadow_id: int, outcome: str, would_have_pnl_cents: int):
+    assert outcome in ("yes", "no", "void"), f"invalid outcome: {outcome}"
+    with get_connection(db_path) as conn:
+        conn.execute(
+            """
+            UPDATE shadow_trades
+            SET outcome = ?, would_have_pnl_cents = ?, status = 'settled', settled_at = ?
+            WHERE id = ?
+            """,
+            (outcome, would_have_pnl_cents, datetime.now(timezone.utc).isoformat(), shadow_id),
+        )
+        conn.commit()
+
+
+def get_shadow_trades_settled_on(db_path: str, date_str: str) -> list:
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM shadow_trades WHERE status = 'settled' AND settled_at LIKE ?",
+            (f"{date_str}%",),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_shadow_trades_settled_since(db_path: str, cutoff_iso: str) -> list:
+    """Rolling-window version of get_shadow_trades_settled_on(), matching
+    the same fix applied to real trades (see get_trades_settled_since) -
+    for consistency, since shadow trades are reported alongside real ones."""
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM shadow_trades WHERE status = 'settled' AND settled_at >= ?",
+            (cutoff_iso,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_shadow_trade_summary(db_path: str) -> dict:
+    """
+    All-time tally of settled shadow trades: how many would have won vs.
+    lost, and net would-have P&L - the evidence needed to eventually
+    answer "was the floor/ceiling too conservative?"
+    """
+    with get_connection(db_path) as conn:
+        row = conn.execute(
+            """
+            SELECT
+                COUNT(*) as n,
+                COALESCE(SUM(would_have_pnl_cents), 0) as total_pnl_cents,
+                SUM(CASE WHEN would_have_pnl_cents > 0 THEN 1 ELSE 0 END) as wins,
+                SUM(CASE WHEN would_have_pnl_cents < 0 THEN 1 ELSE 0 END) as losses
+            FROM shadow_trades WHERE status = 'settled'
+            """
+        ).fetchone()
+        return dict(row)

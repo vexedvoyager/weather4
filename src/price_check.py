@@ -44,30 +44,39 @@ def run_price_check(cfg: dict):
         settle_summary["still_open"], settle_summary["unrecognized_result"],
     )
 
-    # --- Consistency check ---------------------------------------------------
+    # --- Consistency check (skipped in paper mode - see IMPROVEMENTS.md #17) ---
+    # In paper mode, the local database holds SIMULATED positions while
+    # Kalshi's real account has none at all (no real orders are ever
+    # placed) - comparing them would flag a "mismatch" on nearly every
+    # run once the 401 issue is eventually fixed, trading a silent
+    # failure for constant false alarms rather than adding real safety.
+    # This check only becomes meaningful once real orders are being placed.
     db_open = db.count_open_trades(db_path)
-    try:
-        live_positions = client.get_positions()
-        live_open = len(live_positions)
-    except Exception as e:
-        logger.error(
-            "Could not fetch live positions for consistency check: %s. "
-            "If this is a 401 Unauthorized (and /markets calls in this same "
-            "run succeeded), your Kalshi API key likely doesn't have "
-            "portfolio/positions read permission - check the key's scopes "
-            "in your Kalshi account settings. Until fixed, this safety check "
-            "cannot actually verify anything.", e,
-        )
-        live_open = db_open
+    if cfg["mode"] != "paper":
+        try:
+            live_positions = client.get_positions()
+            live_open = len(live_positions)
+        except Exception as e:
+            logger.error(
+                "Could not fetch live positions for consistency check: %s. "
+                "If this is a 401 Unauthorized (and /markets calls in this same "
+                "run succeeded), your Kalshi API key likely doesn't have "
+                "portfolio/positions read permission - check the key's scopes "
+                "in your Kalshi account settings. Until fixed, this safety check "
+                "cannot actually verify anything.", e,
+            )
+            live_open = db_open
 
-    if abs(db_open - live_open) > 1:
-        msg = (
-            f"POSITION MISMATCH: local database shows {db_open} open "
-            f"position(s), but Kalshi shows {live_open}. Review before "
-            f"trusting today's numbers."
-        )
-        logger.warning(msg)
-        alerts.write_alert(cfg, "Position mismatch", msg)
+        if abs(db_open - live_open) > 1:
+            msg = (
+                f"POSITION MISMATCH: local database shows {db_open} open "
+                f"position(s), but Kalshi shows {live_open}. Review before "
+                f"trusting today's numbers."
+            )
+            logger.warning(msg)
+            alerts.write_alert(cfg, "Position mismatch", msg)
+    else:
+        live_open = db_open  # not meaningful to compare in paper mode - see above
 
     # --- Daily loss limit ------------------------------------------------------
     today_str = datetime.now(timezone.utc).date().isoformat()
@@ -136,6 +145,7 @@ def run_price_check(cfg: dict):
                 continue
 
             model_prob = cached["model_prob"]
+            raw_model_prob = cached.get("raw_model_prob")
             threshold_description = cached.get("threshold_description")
 
             try:
@@ -148,13 +158,49 @@ def run_price_check(cfg: dict):
             if snap is None:
                 continue
 
+            # Volume is independent of clamped vs. raw probability - check
+            # it once, shared by both the real-trade and shadow-trade paths.
+            if snap.volume_24h < cfg["operations"]["min_volume_contracts"]:
+                continue
+
             market_prob = snap.yes_ask_cents / 100.0
             gap = model_prob - market_prob
             want_side = "yes" if gap > 0 else "no"
 
             if abs(gap) < cfg["edge"]["min_probability_gap"]:
-                continue
-            if snap.volume_24h < cfg["operations"]["min_volume_contracts"]:
+                # --- Shadow-trade detection (v5, item #10) ------------------
+                # The CLAMPED probability didn't clear the edge threshold -
+                # a normal trade won't happen. But if the RAW (unclamped)
+                # probability would have cleared it, this is exactly the
+                # kind of trade the floor/ceiling fix was built to stop.
+                # Log it with zero real budget spent, so the fix itself can
+                # be checked against real outcomes over time.
+                if raw_model_prob is not None and raw_model_prob != model_prob:
+                    raw_gap = raw_model_prob - market_prob
+                    raw_want_side = "yes" if raw_gap > 0 else "no"
+                    if abs(raw_gap) >= cfg["edge"]["min_probability_gap"]:
+                        raw_scores = edge.composite_score(
+                            snap, raw_model_prob, raw_want_side,
+                            cfg["operations"]["min_volume_contracts"], cfg["edge"]["weights"],
+                        )
+                        if raw_scores["composite"] >= cfg["edge"]["min_composite_score"]:
+                            if not db.has_pending_shadow_trade(db_path, ticker):
+                                shadow_price_cents = (
+                                    snap.yes_ask_cents if raw_want_side == "yes" else snap.no_ask_cents
+                                )
+                                db.insert_shadow_trade(
+                                    db_path, ticker, city, raw_want_side, raw_model_prob,
+                                    model_prob, shadow_price_cents, threshold_description,
+                                    raw_scores["composite"],
+                                )
+                                logger.info(
+                                    "SHADOW ticker=%s city=%s side=%s raw_prob=%.3f "
+                                    "clamped_prob=%.3f price_cents=%d - would have traded "
+                                    "under the old unclamped logic, excluded by the v5 "
+                                    "confidence floor/ceiling",
+                                    ticker, city, raw_want_side, raw_model_prob,
+                                    model_prob, shadow_price_cents,
+                                )
                 continue
 
             scores = edge.composite_score(
