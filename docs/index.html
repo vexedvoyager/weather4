@@ -109,6 +109,7 @@
   .gain { color: var(--gain); }
   .loss { color: var(--loss); }
   .neutral { color: var(--muted); }
+  .flag { color: var(--gain); font-size: 0.75rem; font-weight: 600; }
   .chart-wrap {
     position: relative;
     height: 280px;
@@ -145,7 +146,7 @@
     <div><span class="label">Mode</span><span class="value">PAPER</span></div>
     <div><span class="label">Deployed</span><span class="value">$47.50 / $50.00</span></div>
     <div><span class="label">Open positions</span><span class="value">10</span></div>
-    <div><span class="label">Last updated</span><span class="value">2026-09-25 00:47 UTC</span></div>
+    <div><span class="label">Last updated</span><span class="value">2026-09-25 01:45 UTC</span></div>
   </div>
 
   <section>
@@ -235,50 +236,50 @@
     </tr>
     <tr>
       <td>Los Angeles</td>
-      <td>high 82-83°F</td>
+      <td>high 82-83°F <span class="flag">[!]</span></td>
       <td>NO</td>
       <td>5x @ 93&cent;</td>
-      <td>0%</td>
+      <td>0.0%</td>
       <td class="neutral">open</td>
     </tr>
     <tr>
       <td>Los Angeles</td>
-      <td>high < 78°F</td>
+      <td>high < 78°F <span class="flag">[!]</span></td>
       <td>YES</td>
       <td>15x @ 32&cent;</td>
-      <td>100%</td>
+      <td>100.0%</td>
       <td class="neutral">open</td>
     </tr>
     <tr>
       <td>Austin</td>
-      <td>high 98-99°F</td>
+      <td>high 98-99°F <span class="flag">[!]</span></td>
       <td>NO</td>
       <td>9x @ 55&cent;</td>
-      <td>0%</td>
+      <td>0.0%</td>
       <td class="neutral">open</td>
     </tr>
     <tr>
       <td>Austin</td>
-      <td>high < 96°F</td>
+      <td>high < 96°F <span class="flag">[!]</span></td>
       <td>YES</td>
       <td>45x @ 11&cent;</td>
-      <td>100%</td>
+      <td>100.0%</td>
       <td class="neutral">open</td>
     </tr>
     <tr>
       <td>Chicago</td>
-      <td>high 70-71°F</td>
+      <td>high 70-71°F <span class="flag">[!]</span></td>
       <td>NO</td>
       <td>7x @ 66&cent;</td>
-      <td>0%</td>
+      <td>0.0%</td>
       <td class="neutral">open</td>
     </tr>
     <tr>
       <td>Chicago</td>
-      <td>high < 66°F</td>
+      <td>high < 66°F <span class="flag">[!]</span></td>
       <td>YES</td>
       <td>166x @ 3&cent;</td>
-      <td>100%</td>
+      <td>100.0%</td>
       <td class="neutral">open</td>
     </tr>
     </table>
@@ -291,19 +292,19 @@
       
     <tr>
       <td>Los Angeles</td>
-      <td>high 79-80°F</td>
+      <td>high 79-80°F <span class="flag">[!]</span></td>
       <td>NO</td>
       <td>6x @ 76&cent;</td>
-      <td>0%</td>
+      <td>0.0%</td>
       <td class="gain">NO &middot; $+1.44</td>
     </tr>
     <tr>
       <td>Los Angeles</td>
-      <td>high < 75°F</td>
+      <td>high < 75°F <span class="flag">[!]</span></td>
       <td>YES</td>
       <td>125x @ 4&cent;</td>
-      <td>100%</td>
-      <td class="loss">NO &middot; $-5.00</td>
+      <td>100.0%</td>
+      <td class="loss">NO &middot; $-5.00<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 75°F</span></td>
     </tr>
     <tr>
       <td>Austin</td>
@@ -343,22 +344,22 @@
       <td>YES</td>
       <td>83x @ 6&cent;</td>
       <td>38%</td>
-      <td class="loss">NO &middot; $-4.98</td>
+      <td class="loss">NO &middot; $-4.98<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 63°F</span></td>
     </tr>
     <tr>
       <td>Austin</td>
-      <td>high < 95°F</td>
+      <td>high < 95°F <span class="flag">[!]</span></td>
       <td>YES</td>
       <td>250x @ 2&cent;</td>
-      <td>100%</td>
-      <td class="loss">NO &middot; $-5.00</td>
+      <td>100.0%</td>
+      <td class="loss">NO &middot; $-5.00<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 95°F</span></td>
     </tr>
     <tr>
       <td>Chicago</td>
-      <td>high 64-65°F</td>
+      <td>high 64-65°F <span class="flag">[!]</span></td>
       <td>NO</td>
       <td>7x @ 70&cent;</td>
-      <td>1%</td>
+      <td>0.9%</td>
       <td class="loss">YES &middot; $-4.90</td>
     </tr>
     <tr>
@@ -367,7 +368,7 @@
       <td>YES</td>
       <td>41x @ 12&cent;</td>
       <td>94%</td>
-      <td class="loss">NO &middot; $-4.92</td>
+      <td class="loss">NO &middot; $-4.92<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 62°F</span></td>
     </tr>
     <tr>
       <td>New York</td>
@@ -379,19 +380,19 @@
     </tr>
     <tr>
       <td>Los Angeles</td>
-      <td>high 78-79°F</td>
+      <td>high 78-79°F <span class="flag">[!]</span></td>
       <td>NO</td>
       <td>6x @ 82&cent;</td>
-      <td>0%</td>
+      <td>0.0%</td>
       <td class="loss">YES &middot; $-4.92</td>
     </tr>
     <tr>
       <td>Los Angeles</td>
-      <td>high < 76°F</td>
+      <td>high < 76°F <span class="flag">[!]</span></td>
       <td>YES</td>
       <td>13x @ 36&cent;</td>
-      <td>100%</td>
-      <td class="loss">NO &middot; $-4.68</td>
+      <td>100.0%</td>
+      <td class="loss">NO &middot; $-4.68<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 76°F</span></td>
     </tr>
     <tr>
       <td>Austin</td>
@@ -403,10 +404,10 @@
     </tr>
     <tr>
       <td>Miami</td>
-      <td>high 86-87°F</td>
+      <td>high 86-87°F <span class="flag">[!]</span></td>
       <td>NO</td>
       <td>8x @ 60&cent;</td>
-      <td>1%</td>
+      <td>0.8%</td>
       <td class="gain">NO &middot; $+3.20</td>
     </tr>
     <tr>
@@ -415,7 +416,7 @@
       <td>NO</td>
       <td>38x @ 13&cent;</td>
       <td>67%</td>
-      <td class="loss">YES &middot; $-4.94</td>
+      <td class="loss">YES &middot; $-4.94<br><span class="neutral" style="font-size:0.75rem">confirmed: high < 71°F</span></td>
     </tr>
     <tr>
       <td>Miami</td>
@@ -427,27 +428,27 @@
     </tr>
     <tr>
       <td>Austin</td>
-      <td>high < 97°F</td>
+      <td>high < 97°F <span class="flag">[!]</span></td>
       <td>YES</td>
       <td>166x @ 3&cent;</td>
-      <td>100%</td>
-      <td class="loss">NO &middot; $-4.98</td>
+      <td>100.0%</td>
+      <td class="loss">NO &middot; $-4.98<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 97°F</span></td>
     </tr>
     <tr>
       <td>Chicago</td>
-      <td>high 71-72°F</td>
+      <td>high 71-72°F <span class="flag">[!]</span></td>
       <td>NO</td>
       <td>7x @ 70&cent;</td>
-      <td>0%</td>
+      <td>0.0%</td>
       <td class="gain">NO &middot; $+2.10</td>
     </tr>
     <tr>
       <td>Chicago</td>
-      <td>high < 69°F</td>
+      <td>high < 69°F <span class="flag">[!]</span></td>
       <td>YES</td>
       <td>26x @ 19&cent;</td>
-      <td>100%</td>
-      <td class="loss">NO &middot; $-4.94</td>
+      <td>100.0%</td>
+      <td class="loss">NO &middot; $-4.94<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 69°F</span></td>
     </tr>
     <tr>
       <td>Miami</td>
@@ -471,24 +472,33 @@
       <td>YES</td>
       <td>166x @ 3&cent;</td>
       <td>20%</td>
-      <td class="loss">NO &middot; $-4.98</td>
+      <td class="loss">NO &middot; $-4.98<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 69°F</span></td>
     </tr>
     <tr>
       <td>Austin</td>
-      <td>high < 96°F</td>
+      <td>high < 96°F <span class="flag">[!]</span></td>
       <td>YES</td>
       <td>166x @ 3&cent;</td>
-      <td>100%</td>
-      <td class="loss">NO &middot; $-4.98</td>
+      <td>100.0%</td>
+      <td class="loss">NO &middot; $-4.98<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 96°F</span></td>
     </tr>
     <tr>
       <td>Los Angeles</td>
-      <td>high < 72°F</td>
+      <td>high < 72°F <span class="flag">[!]</span></td>
       <td>YES</td>
       <td>500x @ 1&cent;</td>
-      <td>100%</td>
-      <td class="loss">NO &middot; $-5.00</td>
+      <td>100.0%</td>
+      <td class="loss">NO &middot; $-5.00<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 72°F</span></td>
     </tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Shadow trades <span class="neutral" style="font-size:0.8rem;font-weight:400">(excluded by the confidence floor/ceiling — not real money)</span></h2>
+    <p class="neutral" style="margin: 4px 0 12px">0 pending, none settled yet</p>
+    <table>
+      <tr><th>City</th><th>Contract</th><th>Side</th><th>Model (raw/clamped)</th><th>Would-have outcome</th></tr>
+      <tr><td colspan="5" class="neutral">No shadow trades settled yet.</td></tr>
     </table>
   </section>
 
