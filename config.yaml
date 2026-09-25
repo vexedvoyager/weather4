@@ -1,6 +1,10 @@
 # =============================================================================
 # Predict Weather Bot v5.0 — Configuration
 # =============================================================================
+# v5 went active: 2026-09-26 (confidence floor/ceiling + shadow-tracking,
+# rolling-window reporting fix, redesigned daily summary/dashboard - see
+# IMPROVEMENTS.md items #10, #14, #15, #16, #17 for details)
+#
 # This is the ONE file you should need to touch regularly. Everything here
 # is plain English settings, not code.
 # =============================================================================
