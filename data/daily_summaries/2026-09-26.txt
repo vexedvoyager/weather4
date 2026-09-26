@@ -20,6 +20,7 @@ Net P&L, last 24h: $+0.00
 
 Shadow trades (excluded by the confidence floor/ceiling - NOT real money, tracked to check if the floor was right):
   Los Angeles: YES on high < 81°F — would have WON +0.10 (raw model said 100.0%, clamped to 95.0%) [KXHIGHLAX-26SEP25-T81]
+  (1 more still pending settlement)
   All-time shadow record: 1 settled, 1W/0L, would-have net $+0.10
 
 Model self-audit (97 trades): Brier 0.6152 vs base rate 0.2423 — NO SKILL ⚠
