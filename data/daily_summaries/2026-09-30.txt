@@ -1,0 +1,31 @@
+=== Predict Weather Bot — 2026-09-30 ===
+Mode: PAPER
+
+Yesterday: $-9.63 (3W / 3L)  |  Deployed: $33.37/$50  |  Open: 7
+
+New trades, last 24h (5):
+  New York: NO on high 69-70°F @ 47c (15% conf) [KXHIGHNY-26SEP29-B69.5]
+  Chicago: YES on high < 69°F @ 31c (95.0% conf) [!] [KXHIGHCHI-26SEP30-T69]
+  Chicago: NO on high 71-72°F @ 86c (0.0% conf) [!] [KXHIGHCHI-26SEP30-B71.5]
+  Austin: YES on high < 93°F @ 10c (95.0% conf) [!] [KXHIGHAUS-26SEP30-T93]
+  Austin: NO on high 97-98°F @ 64c (0.0% conf) [!] [KXHIGHAUS-26SEP30-B97.5]
+
+Settled, last 24h (6):
+  Chicago: YES on high < 69°F — LOST -5.00 [!]  |  actual: high ≥ 69°F [KXHIGHCHI-26SEP28-T69]
+  Chicago: NO on high 75-76°F — WON +1.50 [!] [KXHIGHCHI-26SEP28-B75.5]
+  Austin: YES on high < 95°F — LOST -4.98 [!]  |  actual: high ≥ 95°F [KXHIGHAUS-26SEP28-T95]
+  Austin: NO on high 99-100°F — WON +1.38 [!] [KXHIGHAUS-26SEP28-B99.5]
+  Miami: NO on high 89-90°F — LOST -4.56 [KXHIGHMIA-26SEP28-B89.5]
+  Miami: NO on high 87-88°F — WON +2.03 [KXHIGHMIA-26SEP28-B87.5]
+
+Net P&L, last 24h: $-9.63
+
+Shadow trades (excluded by the confidence floor/ceiling - NOT real money, tracked to check if the floor was right):
+  (1 more still pending settlement)
+  All-time shadow record: 2 settled, 1W/1L, would-have net $-0.79
+
+Model self-audit (115 trades): Brier 0.6424 vs base rate 0.2457 — NO SKILL ⚠
+
+14-day P&L: ▁▃▂█▁▃▁▄▁▄▄▃▃▄  (range $-27 to $+27, cumulative $-108.64)
+
+Simulated — no real money at risk. Consider live mode once these numbers look sane for a couple of weeks.
