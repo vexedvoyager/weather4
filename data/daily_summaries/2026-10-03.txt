@@ -1,0 +1,31 @@
+=== Predict Weather Bot — 2026-10-03 ===
+Mode: PAPER
+
+Yesterday: $-7.49 (1W / 2L)  |  Deployed: $23.72/$50  |  Open: 5
+
+⚠ 1 position(s) open longer than 36h - worth checking directly on Kalshi:
+  Los Angeles: high < 85°F, open 39h [KXHIGHLAX-26OCT02-T85]
+
+New trades, last 24h (3):
+  Chicago: YES on high < 64°F @ 3c (95.0% conf) [!] [KXHIGHCHI-26OCT03-T64]
+  Chicago: NO on high 70-71°F @ 80c (0.0% conf) [!] [KXHIGHCHI-26OCT03-B70.5]
+  New York: NO on high 72-73°F @ 64c (0.0% conf) [!] [KXHIGHNY-26OCT03-B72.5]
+
+Settled, last 24h (5):
+  Austin: YES on high < 78°F — LOST -5.00 [!]  |  actual: high ≥ 78°F [KXHIGHAUS-26OCT02-T78]
+  Austin: NO on high 84-85°F — WON +0.65 [!] [KXHIGHAUS-26OCT02-B84.5]
+  New York: YES on high < 81°F — LOST -5.00  |  actual: high ≥ 81°F [KXHIGHNY-26OCT02-T81]
+  Miami: NO on high 89-90°F — WON +4.14 [KXHIGHMIA-26OCT02-B89.5]
+  Miami: NO on high 87-88°F — LOST -4.96 [KXHIGHMIA-26OCT02-B87.5]
+
+Net P&L, last 24h: $-10.17
+
+Shadow trades (excluded by the confidence floor/ceiling - NOT real money, tracked to check if the floor was right):
+  (2 more still pending settlement)
+  All-time shadow record: 4 settled, 3W/1L, would-have net $-0.66
+
+Model self-audit (135 trades): Brier 0.6345 vs base rate 0.2450 — NO SKILL ⚠
+
+14-day P&L: █▁▃▁▄▁▄▄▃▃▃▂▃▃  (range $-27 to $+27, cumulative $-105.90)
+
+Simulated — no real money at risk. Consider live mode once these numbers look sane for a couple of weeks.
