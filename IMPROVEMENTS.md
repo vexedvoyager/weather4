@@ -541,6 +541,37 @@ rather than just
 
 ---
 
+### 18. Stamp a bot version on every trade, print it in the summary, and report Brier per version
+
+**Why:** after v5 shipped, the cumulative Brier score (0.6328) blended
+roughly 90 trades from the old v4 logic with a handful from v5, so it
+could not show whether the v5 changes (confidence floor/ceiling,
+shadow-tracking, reporting fixes) helped or hurt. Judging a change
+currently requires manually splitting trades by date, and the summary
+does not say which version produced it. This will come up after every
+future change, so the split should be automatic.
+
+**Proposed fix:**
+  1. A single VERSION constant (e.g. VERSION = "5.0") in one file,
+     read by everything else so it cannot drift out of sync with the code.
+  2. Print the version in the daily summary header
+     (=== Predict Weather Bot v5.0 - 2026-09-30 ===) and on the dashboard.
+  3. Add a bot_version column to the trades and shadow_trades tables,
+     stamped when each trade is opened. Needs the same safe migration
+     pattern used for earlier columns (see db.py's
+     _migrate_add_missing_columns). Backfill existing rows using the
+     v5 go-live date (2026-09-25): earlier rows are "4.0", later rows "5.0".
+  4. Extend src/brier_tracker.py to report per version, e.g.
+     "v5: 14 trades, Brier 0.5x | v4: 93 trades, Brier 0.60", instead of
+     a single blended number.
+
+**Note:** this is not needed to answer today's v4-vs-v5 question. Every
+trade already has an opened_at timestamp, so that split can be done
+retroactively from trades.db or the saved daily summaries.
+
+**Priority:** medium. It should ship with the next code change, so that
+change can be evaluated cleanly from its first trade.
+
 **Dropped the backtest feature entirely (in v2.0).** After finding that
 NOAA doesn't retain the needed forecast bulletin archive beyond about a
 week for free, the feature's original value proposition wasn't
