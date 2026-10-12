@@ -1,0 +1,27 @@
+=== Predict Weather Bot — 2026-10-12 ===
+Mode: PAPER
+
+Yesterday: $-29.06 (2W / 7L)  |  Deployed: $28.56/$50  |  Open: 6
+
+New trades, last 24h (6):
+  Chicago: YES on high < 84°F @ 4c (95.0% conf) [!] [KXHIGHCHI-26OCT12-T84]
+  Chicago: NO on high 88-89°F @ 72c (0.0% conf) [!] [KXHIGHCHI-26OCT12-B88.5]
+  Austin: YES on high < 90°F @ 10c (95.0% conf) [!] [KXHIGHAUS-26OCT12-T90]
+  New York: YES on high < 69°F @ 9c (25% conf) [KXHIGHNY-26OCT12-T69]
+  New York: NO on high 73-74°F @ 87c (5.0% conf) [!] [KXHIGHNY-26OCT12-B73.5]
+  Miami: NO on high 90-91°F @ 38c (25% conf) [KXHIGHMIA-26OCT12-B90.5]
+
+Settled, last 24h (1):
+  Miami: NO on high 91-92°F — WON +11.20 [KXHIGHMIA-26OCT11-B91.5]
+
+Net P&L, last 24h: $+11.20
+
+Shadow trades (excluded by the confidence floor/ceiling - NOT real money, tracked to check if the floor was right):
+  (1 more still pending settlement)
+  All-time shadow record: 9 settled, 7W/2L, would-have net $-1.27
+
+Model self-audit (180 trades): Brier 0.6224 vs base rate 0.2456 — NO SKILL ⚠
+
+14-day P&L: ▄▄▃▄▃▄▄▅▄▄▄▄▁█  (range $-29 to $+11, cumulative $-124.30)
+
+Simulated — no real money at risk. Consider live mode once these numbers look sane for a couple of weeks.
