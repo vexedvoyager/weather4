@@ -1,0 +1,30 @@
+=== Predict Weather Bot — 2026-10-13 ===
+Mode: PAPER
+
+Yesterday: $+11.20 (1W / 0L)  |  Deployed: $19.73/$50  |  Open: 4
+
+New trades, last 24h (4):
+  Austin: YES on high < 91°F @ 2c (95.0% conf) [!] [KXHIGHAUS-26OCT13-T91]
+  Los Angeles: YES on high < 68°F @ 2c (95.0% conf) [!] [KXHIGHLAX-26OCT13-T68]
+  Los Angeles: NO on high 74-75°F @ 71c (0.0% conf) [!] [KXHIGHLAX-26OCT13-B74.5]
+  Miami: NO on high 89-90°F @ 28c (25% conf) [KXHIGHMIA-26OCT13-B89.5]
+
+Settled, last 24h (6):
+  Chicago: YES on high < 84°F — LOST -5.00 [!]  |  actual: high ≥ 84°F [KXHIGHCHI-26OCT12-T84]
+  Chicago: NO on high 88-89°F — LOST -4.32 [!] [KXHIGHCHI-26OCT12-B88.5]
+  Austin: YES on high < 90°F — LOST -5.00 [!]  |  actual: high ≥ 90°F [KXHIGHAUS-26OCT12-T90]
+  New York: YES on high < 69°F — LOST -4.95  |  actual: high ≥ 69°F [KXHIGHNY-26OCT12-T69]
+  New York: NO on high 73-74°F — WON +0.65 [!] [KXHIGHNY-26OCT12-B73.5]
+  Miami: NO on high 90-91°F — LOST -4.94 [KXHIGHMIA-26OCT12-B90.5]
+
+Net P&L, last 24h: $-23.56
+
+Shadow trades (excluded by the confidence floor/ceiling - NOT real money, tracked to check if the floor was right):
+  Miami: YES on high 92-93°F — would have LOST -0.16 (raw model said 24%, clamped to 20%) [KXHIGHMIA-26OCT12-B92.5]
+  All-time shadow record: 10 settled, 7W/3L, would-have net $-1.43
+
+Model self-audit (186 trades): Brier 0.6175 vs base rate 0.2443 — NO SKILL ⚠
+
+14-day P&L: ▄▃▄▃▄▄▅▄▄▄▄▁█▁  (range $-29 to $+11, cumulative $-138.23)
+
+Simulated — no real money at risk. Consider live mode once these numbers look sane for a couple of weeks.
