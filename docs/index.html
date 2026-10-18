@@ -138,15 +138,15 @@
 
   <h1>Predict Weather Bot</h1>
   <div class="hero">
-    <div class="hero-number loss">$-314.78</div>
-    <div class="hero-label">Total settled P&amp;L, 206 trade(s) settled, 42% win rate</div>
+    <div class="hero-number loss">$-323.74</div>
+    <div class="hero-label">Total settled P&amp;L, 209 trade(s) settled, 42% win rate</div>
   </div>
 
   <div class="conditions">
     <div><span class="label">Mode</span><span class="value">PAPER</span></div>
-    <div><span class="label">Deployed</span><span class="value">$48.86 / $50.00</span></div>
-    <div><span class="label">Open positions</span><span class="value">10</span></div>
-    <div><span class="label">Last updated</span><span class="value">2026-10-18 11:27 UTC</span></div>
+    <div><span class="label">Deployed</span><span class="value">$43.63 / $50.00</span></div>
+    <div><span class="label">Open positions</span><span class="value">9</span></div>
+    <div><span class="label">Last updated</span><span class="value">2026-10-18 14:46 UTC</span></div>
   </div>
 
   <section>
@@ -161,10 +161,10 @@
       
         <tr>
           <td>Austin</td>
-          <td>39</td>
+          <td>40</td>
           <td>10</td>
-          <td>29</td>
-          <td class="loss">$-108.74</td>
+          <td>30</td>
+          <td class="loss">$-113.74</td>
         </tr>
         <tr>
           <td>Chicago</td>
@@ -175,10 +175,10 @@
         </tr>
         <tr>
           <td>Los Angeles</td>
-          <td>42</td>
-          <td>15</td>
-          <td>27</td>
-          <td class="loss">$-117.20</td>
+          <td>44</td>
+          <td>16</td>
+          <td>28</td>
+          <td class="loss">$-121.16</td>
         </tr>
         <tr>
           <td>Miami</td>
@@ -198,10 +198,26 @@
   </section>
 
   <section>
-    <h2>Open positions (10)</h2>
+    <h2>Open positions (9)</h2>
     <table>
       <tr><th>City</th><th>Contract</th><th>Side</th><th>Position</th><th>Model</th><th>Status</th></tr>
       
+    <tr>
+      <td>Los Angeles</td>
+      <td>high < 78°F <span class="flag">[!]</span></td>
+      <td>YES</td>
+      <td>500x @ 1&cent;</td>
+      <td>95.0%</td>
+      <td class="neutral">open</td>
+    </tr>
+    <tr>
+      <td>Los Angeles</td>
+      <td>high > 85°F <span class="flag">[!]</span></td>
+      <td>NO</td>
+      <td>11x @ 43&cent;</td>
+      <td>5.0%</td>
+      <td class="neutral">open</td>
+    </tr>
     <tr>
       <td>Miami</td>
       <td>high 82-83°F</td>
@@ -258,30 +274,6 @@
       <td>95.0%</td>
       <td class="neutral">open</td>
     </tr>
-    <tr>
-      <td>Los Angeles</td>
-      <td>high 94-95°F <span class="flag">[!]</span></td>
-      <td>NO</td>
-      <td>6x @ 83&cent;</td>
-      <td>0.0%</td>
-      <td class="neutral">open</td>
-    </tr>
-    <tr>
-      <td>Los Angeles</td>
-      <td>high < 88°F <span class="flag">[!]</span></td>
-      <td>YES</td>
-      <td>83x @ 6&cent;</td>
-      <td>95.0%</td>
-      <td class="neutral">open</td>
-    </tr>
-    <tr>
-      <td>Austin</td>
-      <td>high < 66°F <span class="flag">[!]</span></td>
-      <td>YES</td>
-      <td>500x @ 1&cent;</td>
-      <td>95.0%</td>
-      <td class="neutral">open</td>
-    </tr>
     </table>
   </section>
 
@@ -290,6 +282,30 @@
     <table>
       <tr><th>City</th><th>Contract</th><th>Side</th><th>Position</th><th>Model</th><th>Outcome</th></tr>
       
+    <tr>
+      <td>Los Angeles</td>
+      <td>high 94-95°F <span class="flag">[!]</span></td>
+      <td>NO</td>
+      <td>6x @ 83&cent;</td>
+      <td>0.0%</td>
+      <td class="gain">NO &middot; $+1.02</td>
+    </tr>
+    <tr>
+      <td>Los Angeles</td>
+      <td>high < 88°F <span class="flag">[!]</span></td>
+      <td>YES</td>
+      <td>83x @ 6&cent;</td>
+      <td>95.0%</td>
+      <td class="loss">NO &middot; $-4.98<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 88°F</span></td>
+    </tr>
+    <tr>
+      <td>Austin</td>
+      <td>high < 66°F <span class="flag">[!]</span></td>
+      <td>YES</td>
+      <td>500x @ 1&cent;</td>
+      <td>95.0%</td>
+      <td class="loss">NO &middot; $-5.00<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 66°F</span></td>
+    </tr>
     <tr>
       <td>Miami</td>
       <td>high 90-91°F</td>
@@ -466,30 +482,6 @@
       <td>5.0%</td>
       <td class="gain">NO &middot; $+0.65</td>
     </tr>
-    <tr>
-      <td>New York</td>
-      <td>high < 69°F</td>
-      <td>YES</td>
-      <td>55x @ 9&cent;</td>
-      <td>25%</td>
-      <td class="loss">NO &middot; $-4.95<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 69°F</span></td>
-    </tr>
-    <tr>
-      <td>Austin</td>
-      <td>high < 90°F <span class="flag">[!]</span></td>
-      <td>YES</td>
-      <td>50x @ 10&cent;</td>
-      <td>95.0%</td>
-      <td class="loss">NO &middot; $-5.00<br><span class="neutral" style="font-size:0.75rem">actual: high ≥ 90°F</span></td>
-    </tr>
-    <tr>
-      <td>Chicago</td>
-      <td>high 88-89°F <span class="flag">[!]</span></td>
-      <td>NO</td>
-      <td>6x @ 72&cent;</td>
-      <td>0.0%</td>
-      <td class="loss">YES &middot; $-4.32</td>
-    </tr>
     </table>
   </section>
 
@@ -576,9 +568,9 @@
     <h2>Model self-audit (Brier score)</h2>
     
         <div class="brier-grid">
-          <div><span class="label">Trades audited</span><span class="value">206</span></div>
-          <div><span class="label">Model Brier score</span><span class="value">0.6195</span></div>
-          <div><span class="label">Base rate Brier score</span><span class="value">0.2440</span></div>
+          <div><span class="label">Trades audited</span><span class="value">209</span></div>
+          <div><span class="label">Model Brier score</span><span class="value">0.6240</span></div>
+          <div><span class="label">Base rate Brier score</span><span class="value">0.2438</span></div>
           <div><span class="label">Verdict</span><span class="value loss">NO SKILL</span></div>
         </div>
         <p class="neutral"></p>
@@ -598,7 +590,7 @@ new Chart(ctx, {
     datasets: [
       {
         label: 'Cumulative P&L ($)',
-        data: [0.0, 0.0, 0.0, 0.0, 0.0, -3.22, -13.12, 10.95, 10.95, 0.31, 0.31, -7.32, -28.57, -48.03, -55.58, -70.58, -43.24, -63.44, -67.85, -94.81, -94.81, -118.31, -118.31, -119.26, -127.58, -137.21, -145.84, -158.82, -166.31, -180.94, -188.2, -195.75, -197.37, -208.3, -214.88, -226.31, -234.02, -263.08, -251.88, -275.44, -288.17, -291.32, -304.36, -314.78, -314.78],
+        data: [0.0, 0.0, 0.0, 0.0, 0.0, -3.22, -13.12, 10.95, 10.95, 0.31, 0.31, -7.32, -28.57, -48.03, -55.58, -70.58, -43.24, -63.44, -67.85, -94.81, -94.81, -118.31, -118.31, -119.26, -127.58, -137.21, -145.84, -158.82, -166.31, -180.94, -188.2, -195.75, -197.37, -208.3, -214.88, -226.31, -234.02, -263.08, -251.88, -275.44, -288.17, -291.32, -304.36, -314.78, -323.74],
         borderColor: '#E8A33D',
         backgroundColor: 'rgba(232, 163, 61, 0.12)',
         borderWidth: 2,
