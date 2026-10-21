@@ -1,0 +1,26 @@
+=== Predict Weather Bot — 2026-10-21 ===
+Mode: PAPER
+
+Yesterday: $-4.96 (0W / 1L)  |  Deployed: $9.88/$50  |  Open: 2
+
+New trades, last 24h (2):
+  Austin: YES on high < 83°F @ 3c (95.0% conf) [!] [KXHIGHAUS-26OCT21-T83]
+  Miami: NO on high 85-86°F @ 35c (25% conf) [KXHIGHMIA-26OCT21-B85.5]
+
+Settled, last 24h (8):
+  Chicago: YES on high < 65°F — LOST -5.00 [!]  |  actual: high ≥ 65°F [KXHIGHCHI-26OCT20-T65]
+  Chicago: NO on high 69-70°F — LOST -4.56 [!] [KXHIGHCHI-26OCT20-B69.5]
+  Austin: YES on high < 81°F — LOST -5.00 [!]  |  actual: high ≥ 81°F [KXHIGHAUS-26OCT20-T81]
+  New York: NO on high 69-70°F — WON +0.55 [!] [KXHIGHNY-26OCT20-B69.5]
+  New York: NO on high 67-68°F — LOST -4.90 [KXHIGHNY-26OCT20-B67.5]
+  Miami: NO on high 83-84°F — WON +2.24 [KXHIGHMIA-26OCT20-B83.5]
+  Los Angeles: NO on high > 74°F — LOST -4.98 [!]  |  confirmed: high > 74°F [KXHIGHLAX-26OCT20-T74]
+  Los Angeles: YES on high < 67°F — LOST -5.00 [!]  |  actual: high ≥ 67°F [KXHIGHLAX-26OCT20-T67]
+
+Net P&L, last 24h: $-26.65
+
+Model self-audit (227 trades): Brier 0.6217 vs base rate 0.2418 — NO SKILL ⚠
+
+14-day P&L: ▄▄▄▁█▁▃▅▃▄▄▂▅▁  (range $-29 to $+11, cumulative $-168.68)
+
+Simulated — no real money at risk. Consider live mode once these numbers look sane for a couple of weeks.
