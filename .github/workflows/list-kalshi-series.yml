@@ -1,0 +1,36 @@
+name: List Kalshi Series
+
+# Manual only. Lists the daily-high temperature series Kalshi offers, with
+# each one's settlement station and whether NBM can forecast it (v6.0,
+# IMPROVEMENTS.md item #23). Read-only. Output is also saved as a
+# downloadable file ("kalshi-series-list" artifact); upload it to Claude.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: List series
+        env:
+          KALSHI_KEY_ID: ${{ secrets.KALSHI_KEY_ID }}
+          KALSHI_PRIVATE_KEY: ${{ secrets.KALSHI_PRIVATE_KEY }}
+        run: python -m src.list_kalshi_series | tee kalshi_series_list.txt
+
+      - name: Save as a downloadable file
+        uses: actions/upload-artifact@v4
+        with:
+          name: kalshi-series-list
+          path: kalshi_series_list.txt
