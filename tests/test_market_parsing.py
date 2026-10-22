@@ -93,27 +93,52 @@ def test_less_than_market_probability_is_correctly_inverted():
     above_threshold = {"kind": "single", "value": 88.0, "direction": "above"}
     below_threshold = {"kind": "single", "value": 88.0, "direction": "below"}
 
-    prob_above = model_probability_for_market(above_threshold, pct, 1.15)
-    prob_below = model_probability_for_market(below_threshold, pct, 1.15)
+    prob_above = model_probability_for_market(above_threshold, pct, 1.15)["clamped"]
+    prob_below = model_probability_for_market(below_threshold, pct, 1.15)["clamped"]
 
-    # "Greater than 88" should match probability_of_exceeding directly.
-    assert abs(prob_above - p_exceeds_88) < 1e-6
-
-    # "Less than 88" must be the COMPLEMENT, not the same value - this is
-    # the exact inversion that was missing before the fix.
-    assert abs(prob_below - (1 - p_exceeds_88)) < 1e-6
+    # v6.1: Kalshi settles on WHOLE degrees. "Greater than 88" means a high
+    # of 89 or more (temperature > 88.5); "less than 88" means 87 or less
+    # (temperature < 87.5). Each is still the correct SIDE of the forecast,
+    # which is what this regression test exists to protect.
+    assert abs(prob_above - probability_of_exceeding(pct, 88.5, sigma_multiplier=1.15)) < 1e-6
+    assert abs(prob_below - (1 - probability_of_exceeding(pct, 87.5, sigma_multiplier=1.15))) < 1e-6
     assert prob_below < 0.15  # should be LOW confidence, not 75%+ as the bug produced
 
 
-def test_above_and_below_thresholds_always_sum_to_one():
+def test_above_and_below_at_same_strike_leave_out_exactly_that_degree():
+    """
+    v6.1: "greater than X" and "less than X" are NOT complements - a high of
+    exactly X belongs to neither. Together with P(high == X) they must sum
+    to 1. (Before whole-degree settlement was modeled they summed to 1
+    exactly, which was itself the bug.)
+    """
     from src.forecast_refresh import model_probability_for_market
 
     pct = {"p10": 68, "p25": 72, "p50": 76, "p75": 80, "p90": 84}
     for value in (60, 70, 76, 82, 95):
+        kw = dict(sigma_multiplier=1.15)
         above = model_probability_for_market(
-            {"kind": "single", "value": value, "direction": "above"}, pct, 1.15
-        )
+            {"kind": "single", "value": value, "direction": "above"}, pct, 1.15)["raw"]
         below = model_probability_for_market(
-            {"kind": "single", "value": value, "direction": "below"}, pct, 1.15
-        )
-        assert abs((above + below) - 1.0) < 1e-6
+            {"kind": "single", "value": value, "direction": "below"}, pct, 1.15)["raw"]
+        exactly = model_probability_for_market(
+            {"kind": "between", "floor": value, "cap": value}, pct, 1.15)["raw"]
+        assert abs((above + below + exactly) - 1.0) < 1e-5
+
+
+def test_model_probability_for_market_returns_raw_alongside_clamped():
+    """New in v5: the raw (unclamped) value must be exposed too, for
+    shadow-tracking - and for a genuinely far-tail case, raw and clamped
+    should actually differ."""
+    from src.forecast_refresh import model_probability_for_market
+    from src.probability import PROBABILITY_FLOOR
+
+    pct = {"p10": 68, "p25": 72, "p50": 76, "p75": 80, "p90": 84}
+    # Threshold far BELOW p10: "exceeds" is near-certain (clamps to
+    # ceiling), so "below" (the complement) should sit near the FLOOR.
+    far_below_threshold = {"kind": "single", "value": 40.0, "direction": "below"}
+    result = model_probability_for_market(far_below_threshold, pct, 1.15)
+
+    assert result["clamped"] == PROBABILITY_FLOOR
+    assert result["raw"] < 0.01  # the old, unclamped near-impossibility
+    assert result["clamped"] != result["raw"]

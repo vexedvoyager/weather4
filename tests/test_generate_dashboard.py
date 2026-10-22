@@ -96,3 +96,43 @@ def test_missing_threshold_description_falls_back_to_ticker():
     html = generate_dashboard_html(_minimal_cfg(), path)
     assert "OLD-TICKER-NO-DESC" in html
     assert "None" not in html
+
+
+def test_dashboard_shows_shadow_trades_section_when_present():
+    path = _temp_db()
+    shadow_id = db.insert_shadow_trade(
+        path, "SHADOW-1", "Austin", "yes", raw_prob=0.97, clamped_prob=0.55,
+        price_cents=4, threshold_description="high < 96°F",
+    )
+    db.settle_shadow_trade(path, shadow_id, outcome="no", would_have_pnl_cents=-4)
+
+    html = generate_dashboard_html(_minimal_cfg(), path)
+    assert "Shadow trades" in html
+    assert "high < 96°F" in html
+    assert "not real money" in html
+
+
+def test_dashboard_shows_empty_state_when_no_shadow_trades():
+    path = _temp_db()
+    html = generate_dashboard_html(_minimal_cfg(), path)
+    assert "No shadow trades settled yet" in html
+
+
+def test_dashboard_flags_extreme_trades_with_marker():
+    path = _temp_db()
+    db.insert_trade(
+        path, "T1", "Chicago", "yes", 5, 3, 0.95, 0.8, "paper",  # PROBABILITY_CEILING
+        threshold_description="high < 66°F",
+    )
+    html = generate_dashboard_html(_minimal_cfg(), path)
+    assert "[!]" in html
+
+
+def test_dashboard_uses_decimal_precision_for_extreme_probabilities():
+    path = _temp_db()
+    db.insert_trade(
+        path, "T1", "Chicago", "yes", 5, 3, 0.95, 0.8, "paper",
+        threshold_description="high < 66°F",
+    )
+    html = generate_dashboard_html(_minimal_cfg(), path)
+    assert "95.0%" in html

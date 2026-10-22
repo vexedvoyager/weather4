@@ -83,17 +83,16 @@ class _FakeClient:
         return self._markets
 
 
-def test_market_report_shows_which_column_is_picked_and_flags_min_columns():
+def test_market_report_shows_new_pick_vs_old_pick():
     parsed = nbm.parse_station_maxt(_alternating_bulletin(), "KAUS")
     cfg = {"probability_model": {"sigma_multiplier": 1.15}}
     city_cfg = {"name": "Austin", "kalshi_series_prefix": "KXHIGHAUS", "timezone": "America/Chicago"}
-    # run 01Z 9/3; this market closes 9/4 12:00Z -> 35h -> picks FHR 35 (12Z = 07:00 CDT = MIN column)
-    markets = [{
-        "ticker": "KXHIGHAUS-26SEP03-T90", "close_time": "2026-09-04T12:00:00Z",
-        "strike_type": "greater", "floor_strike": 90,
-    }]
-    lines = render_market_report(_FakeClient(markets), city_cfg, parsed, "2026-09-03T01Z", cfg)
-    text = "\n".join(lines)
-    assert "FHR 35" in text
-    assert "MORNING (daily-min time)" in text
-    assert '"MORNING (daily-min time)": 1' in text
+    # 01Z Sep 3 run. Market date Sep 3 -> NEW pick = 00Z Sep 4 = FHR 23 (the daily MAX, 96F).
+    # Close 12:00Z Sep 4 is 35h out -> the OLD rule picked FHR 35 (12Z, the overnight MIN, 72F).
+    markets = [{"ticker": "KXHIGHAUS-26SEP03-T90", "close_time": "2026-09-04T12:00:00Z",
+                "strike_type": "greater", "floor_strike": 90}]
+    text = "\n".join(render_market_report(_FakeClient(markets), city_cfg, parsed, "2026-09-03T01Z", cfg))
+    assert "NEW: FHR 23" in text and "p50=96" in text
+    assert "OLD: FHR 35" in text and "p50=72" in text
+    assert '"old_was_min_column": 1' in text and '"old_differs_from_new": 1' in text
+    assert "model_P(YES)=0.875" in text    # P(high >= 91F): boundary 90.5 sits just above p10=90

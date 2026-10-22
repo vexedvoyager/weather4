@@ -79,6 +79,30 @@ def test_settle_check_leaves_unresolved_market_open():
     assert db.count_open_trades(path) == 1
 
 
+def test_settle_check_logs_per_ticker_diagnostic_for_still_open_trades(caplog):
+    """
+    Item #13: aggregate counts alone can't distinguish a genuinely stuck
+    position from one that's normally still awaiting settlement - this
+    confirms the per-ticker log line (ticker, age, raw result) actually
+    fires, matching the diagnostic-visibility pattern used elsewhere in
+    this project (e.g. forecast_refresh.py's rejection breakdown).
+    """
+    import logging
+    path = _temp_db()
+    db.insert_trade(path, "STILL-OPEN-TICKER", "Chicago", "yes", 5, 60, 0.7, 0.8, "paper")
+
+    client = MagicMock()
+    client.get_market.return_value = {"result": None}
+
+    with caplog.at_level(logging.INFO, logger="settle_check"):
+        run_settle_check(_minimal_cfg(path), client=client)
+
+    log_text = caplog.text
+    assert "still_open" in log_text
+    assert "STILL-OPEN-TICKER" in log_text
+    assert "age=" in log_text
+
+
 def test_settle_check_handles_void_outcome():
     path = _temp_db()
     trade_id = db.insert_trade(path, "TICKER-1", "Miami", "yes", 5, 60, 0.7, 0.8, "paper")

@@ -266,8 +266,9 @@ def test_forecast_refresh_caches_shadow_city_with_provenance():
                               "expected_station": "KDEN", "timezone": "America/Denver"}])
     cfg["cities"] = []   # only the shadow city, to isolate it
     cfg["probability_model"] = {"sigma_multiplier": 1.15, "min_forecast_hour": 24}
-    market = {"ticker": "KXHIGHDEN-26SEP04-T75", "strike_type": "greater", "floor_strike": 75,
-              "close_time": "2026-09-04T05:00:00Z"}   # 28h after the 01Z run -> nearest col FHR 23
+    # Market date Sep 3 -> its daily high is the 00Z Sep 4 column = FHR 23 of the 01Z Sep 3 run.
+    market = {"ticker": "KXHIGHDEN-26SEP03-T75", "strike_type": "greater", "floor_strike": 75,
+              "close_time": "2026-09-04T05:00:00Z"}   # 28h after the run: clears the same-day floor
     client = MagicMock()
     client.get_markets_by_series.return_value = [market]
 
@@ -276,8 +277,35 @@ def test_forecast_refresh_caches_shadow_city_with_provenance():
          patch("src.forecast_refresh.verify_station", return_value=True):
         run_forecast_refresh(cfg)
 
-    cached = db.get_cached_forecast(path, "KXHIGHDEN-26SEP04-T75", 8)
+    cached = db.get_cached_forecast(path, "KXHIGHDEN-26SEP03-T75", 8)
     assert cached is not None
     assert cached["nbm_forecast_hour"] == 23
     assert cached["nbm_valid_utc"].startswith("2026-09-04T00:00")
     assert json.loads(cached["ladder_json"])["p50"] == 76
+
+
+# ------------------------------------ v6.1: headline scores the current version
+
+def _settle(path, ticker, side, p_yes, outcome, version):
+    tid = db.insert_trade(path, ticker, "Chicago", side, 10, 50, p_yes, 0.7, "paper", bot_version=version)
+    db.settle_trade(path, tid, outcome, 0)
+
+
+def test_daily_summary_headline_ignores_invalid_forecast_versions():
+    from src.daily_summary import generate_summary
+    path = _temp_db()
+    for i in range(40):                       # 40 settled trades from the buggy era
+        _settle(path, f"OLD{i}", "yes", 0.95, "no", "v5")
+    cfg = _cfg(path)
+    cfg["risk"] = {"total_budget_usd": 50.0, "max_cost_per_trade_usd": 5.0,
+                   "max_positions_per_city": 2, "daily_loss_limit_usd": 10.0}
+    text = generate_summary(cfg)
+    assert f"no settled {BOT_VERSION} trades yet" in text
+    assert "v5* " in text and "wrong NBM column" in text
+    assert f"=== Predict Weather Bot {BOT_VERSION}" in text
+
+    for i in range(35):                       # now 35 current-version trades that were good
+        _settle(path, f"NEW{i}", "yes", 0.9, "yes", BOT_VERSION)
+    text = generate_summary(cfg)
+    assert f"Model self-audit ({BOT_VERSION}, 35 trades" in text
+    assert "model 0.0100" in text             # (0.9-1)^2 - the old v5 losses are NOT in this number

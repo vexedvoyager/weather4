@@ -110,7 +110,8 @@ def test_by_version_splits_scores():
         conn.execute("UPDATE trades SET bot_version = 'v5' WHERE id <= 10")
         conn.commit()
     summary = compute_brier_summary(path)
-    assert set(summary["by_version"]) == {"v5", "v6.0"}
+    from src.version import BOT_VERSION
+    assert set(summary["by_version"]) == {"v5", BOT_VERSION}
     assert summary["by_version"]["v5"]["n"] == 10
     only_v5 = compute_brier_summary(path, bot_version="v5")
     assert only_v5["n"] == 10
@@ -205,3 +206,16 @@ def test_observation_brier_scores_model_and_market_against_yes_outcome():
     assert result["by_city"]["Denver"]["model_brier"] == 0.81     # (0.9-0)^2
     text = format_observation_brier(result)
     assert "Denver (shadow)" in text and "market closer" in text
+
+
+def test_observation_brier_reports_unclamped_alongside_clamped():
+    from src.brier_tracker import compute_observation_brier, format_observation_brier
+    path = _temp_db()
+    # clamped 0.95 vs raw 0.99, outcome yes
+    db.insert_market_observation(path, "T1", "Miami", False, "high > 80°F", 0.95, 0.99, 50, 48, 100)
+    for obs in db.get_pending_market_observations(path):
+        db.settle_market_observation(path, obs["id"], "yes", None)
+    result = compute_observation_brier(path)
+    assert result["overall"]["model_brier"] == 0.0025        # (0.95-1)^2
+    assert result["overall"]["raw_model_brier"] == 0.0001    # (0.99-1)^2
+    assert "unclamped 0.000" in format_observation_brier(result)
