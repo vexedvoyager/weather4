@@ -163,13 +163,22 @@ def probability_within_range(
     contract pays out on P(floor <= temperature <= cap), not a simple
     exceeds/doesn't-exceed. This is P(exceed floor) - P(exceed cap).
 
-    clamp: passed through to both underlying probability_of_exceeding()
-        calls. A shared clamp on both sides is safe here - if both raw
-        values would clamp to the same bound, the difference correctly
-        comes out as ~0, rather than producing a nonsensical result.
+    clamp: if True (default), the FINAL bracket probability is bounded to
+        [PROBABILITY_FLOOR, PROBABILITY_CEILING].
+
+        v6.1.1 FIX: the bounds used to be applied to each end (P(exceed
+        floor) and P(exceed cap)) before subtracting. In a tail bracket both
+        ends clamp to the same bound, so the difference came out exactly 0.0
+        (e.g. a real 3.3% bracket reported as 0.000), and a mid-size bracket
+        near a tail was shrunk (17.3% -> 12.5%). Now the difference is
+        computed from the raw values and only the result is clamped, so a
+        bracket can never be reported as 0% or 100%.
     """
     if cap < floor:
         raise ValueError(f"cap ({cap}) must be >= floor ({floor})")
-    p_exceed_floor = probability_of_exceeding(percentiles, floor, sigma_multiplier, clamp=clamp)
-    p_exceed_cap = probability_of_exceeding(percentiles, cap, sigma_multiplier, clamp=clamp)
-    return round(max(0.0, p_exceed_floor - p_exceed_cap), 6)
+    p_exceed_floor = probability_of_exceeding(percentiles, floor, sigma_multiplier, clamp=False)
+    p_exceed_cap = probability_of_exceeding(percentiles, cap, sigma_multiplier, clamp=False)
+    raw = round(max(0.0, p_exceed_floor - p_exceed_cap), 6)
+    if not clamp:
+        return raw
+    return round(min(max(raw, PROBABILITY_FLOOR), PROBABILITY_CEILING), 6)

@@ -6,7 +6,7 @@ in the Daily Summary and dashboard headers.
 Bump this whenever model or strategy behavior changes, so results can be
 compared per version instead of blended together.
 """
-BOT_VERSION = "v6.1"
+BOT_VERSION = "v6.1.1"
 
 # Go-live dates of earlier versions, used ONLY to backfill bot_version onto
 # trades recorded before version stamping existed (see db.backfill_bot_version).
