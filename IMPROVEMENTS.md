@@ -734,3 +734,37 @@ max (00Z) or a min (12Z) column. UNCONFIRMED until the diagnostic runs.
   P&L chart, per-city breakdown, open/settled positions tables using the
   plain-English trade descriptions, and the Brier self-audit — all
   regenerated automatically after every Price Check run.
+
+  ## Resolved in v6
+
+### 18. Version stamping
+bot_version recorded on trades, shadow trades and market observations; old rows backfilled as v4/v5. (v6.0)
+
+### 19. NBM column diagnostic
+RESOLVED. Root cause: the parser read the 00Z (daily-max) columns as blank, so v4 to v6.0 forecast every high from the overnight minimum. (v6.0 diagnosed, v6.1 fixed)
+
+### 20. Brier tracker scored P(YES) as the traded-side probability
+Fixed. The market-price Brier is now the benchmark. (v6.0)
+
+### 21. Forecast provenance and settlement values
+NBM run, forecast hour and valid time stored on each trade; Kalshi's expiration_value stored at settlement. (v6.0)
+
+### 22. Market observations and shadow cities
+One unbiased model-vs-market row per ticker for every city, including 8 shadow cities. (v6.0)
+
+### 23. Kalshi series discovery script
+Lists all KXHIGH series, their CLI codes and whether they parse in NBM. (v6.0)
+
+### 24. Parser and daily-max column selection
+Parser reads all columns including 3-digit hours; for market date D the bot uses the 00Z column of D+1. (v6.1)
+
+### 25. Whole-degree settlement modeling
+"Greater than s" means s+1 or more, "less than s" means s-1 or less; a full ladder sums to 1. (v6.1)
+
+## Open follow-ups
+- Remove the 5%/95% clamp if the scorecard's unclamped Brier is better.
+- Revisit the 24-hour same-day floor.
+- Add NWS climate-report actual-high integration.
+- Cap the model-vs-market gap (about 30 points); skip contracts at 5¢ or less and 95¢ or more.
+- Fix the 401 on /portfolio/positions (required before live mode).
+- Set up the external pinger (see #1).
