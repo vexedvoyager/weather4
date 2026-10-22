@@ -9,6 +9,8 @@ isn't" quality that's worth documenting close to the code:
   - Kalshi's orderbook only has bids; asks must be derived
 """
 import logging
+import re
+from datetime import date
 
 from src.edge import MarketSnapshot
 from src.kalshi_client import dollars_to_cents
@@ -128,3 +130,22 @@ def _best_level_size(levels: list) -> int:
         return int(float(count_str))
     except (ValueError, IndexError):
         return 0
+
+
+_MONTHS = {m: i for i, m in enumerate(
+    ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], start=1)}
+
+
+def market_date_from_ticker(ticker: str) -> date | None:
+    """
+    The calendar date a daily-high market is ABOUT (the local date whose
+    high temperature it settles on), read from its ticker:
+    'KXHIGHCHI-26SEP24-T66' -> date(2026, 9, 24). None if no date is found.
+    """
+    m = re.search(r"-(\d{2})([A-Z]{3})(\d{2})(?:-|$)", ticker or "")
+    if not m or m.group(2) not in _MONTHS:
+        return None
+    try:
+        return date(2000 + int(m.group(1)), _MONTHS[m.group(2)], int(m.group(3)))
+    except ValueError:
+        return None

@@ -22,9 +22,9 @@ line) it prints:
   4. The median forecast (TXNP5) grouped by the UTC hour each column is
      valid for. If columns at some hours are ~10-25F lower than others,
      they are overnight minimums, not daily highs.
-  5. If Kalshi credentials are available: for every open market, which
-     column the bot ACTUALLY picks, what time of day it represents, and
-     whether it lands on the market's own date.
+  5. If Kalshi credentials are available: for every open market, the
+     column the bot picks (NEW, v6.1: the daily-max column for the market's
+     date) next to the column the old v5/v6.0 rule would have picked.
 
 Run it from GitHub Actions (Actions -> "Diagnose NBM Columns" -> Run
 workflow), then upload the resulting text file back to Claude. It only
@@ -34,29 +34,15 @@ import argparse
 import json
 import re
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from src import nbm
 from src.config import load_config
+from src.market_parsing import market_date_from_ticker  # noqa: F401  (re-exported for tests)
 
 RAW_HEAD_LINES = 24
 MAX_FHR_SHOWN = 168
-
-_MONTHS = {m: i for i, m in enumerate(
-    ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"], start=1)}
-
-
-def market_date_from_ticker(ticker: str) -> date | None:
-    """'KXHIGHCHI-26SEP24-T66' -> date(2026, 9, 24). None if no date found."""
-    m = re.search(r"-(\d{2})([A-Z]{3})(\d{2})(?:-|$)", ticker or "")
-    if not m or m.group(2) not in _MONTHS:
-        return None
-    try:
-        return date(2000 + int(m.group(1)), _MONTHS[m.group(2)], int(m.group(3)))
-    except ValueError:
-        return None
-
 
 def classify_local_hour(hour: int) -> str:
     """
@@ -159,12 +145,18 @@ def render_station_report(city: str, station: str, tz_name: str, bulletin_text: 
 
 
 def render_market_report(client, city_cfg: dict, parsed: dict, run_id: str, cfg: dict) -> list:
-    """For each open market: which column does the bot actually use?"""
+    """
+    For each open market: the column the bot picks NOW (v6.1: the daily-max
+    column for the market's own date) next to the column the v5/v6.0 rule
+    (nearest non-blank column to the close time) would have picked, so the
+    fix can be checked by eye.
+    """
     from src.forecast_refresh import model_probability_for_market, target_forecast_hour
     from src.market_parsing import describe_threshold, extract_threshold
 
     tz = ZoneInfo(city_cfg["timezone"])
-    out = [f"\n--- 5. Column the bot ACTUALLY picks for each open {city_cfg['name']} market ---"]
+    out = [f"\n--- 5. Column picked for each open {city_cfg['name']} market "
+           f"(NEW = daily-max column for the market date; OLD = v5/v6.0 nearest-column rule) ---"]
     try:
         markets = client.get_markets_by_series(city_cfg["kalshi_series_prefix"])
     except Exception as e:
@@ -174,45 +166,42 @@ def render_market_report(client, city_cfg: dict, parsed: dict, run_id: str, cfg:
         out.append("  No open markets.")
         return out
 
-    flags = {"AFTERNOON/EVENING (daily-max time)": 0, "MORNING (daily-min time)": 0,
-             "OTHER": 0, "DATE_MISMATCH": 0, "no_column": 0}
+    counts = {"new_ok": 0, "new_missing": 0, "old_differs_from_new": 0, "old_was_min_column": 0}
     for m in markets:
         ticker = m.get("ticker", "?")
         threshold = extract_threshold(m)
         desc = describe_threshold(threshold) if threshold else "?"
-        hour = target_forecast_hour(run_id, m.get("close_time"))
-        if hour is None:
-            out.append(f"  {ticker}: no/unparseable close_time")
-            continue
-        chosen = nbm.get_forecast_with_meta(parsed, hour)
-        if chosen is None:
-            flags["no_column"] += 1
-            out.append(f"  {ticker} [{desc}] close={m.get('close_time')} target_hour={hour}: NO usable column")
-            continue
-        valid_utc = nbm.valid_time_utc(run_id, chosen["forecast_hour"])
-        valid_local = valid_utc.astimezone(tz)
-        kind = classify_local_hour(valid_local.hour)
-        flags[kind] += 1
         mdate = market_date_from_ticker(ticker)
-        # A daily-high column describes the afternoon of ITS date; shifting back
-        # 6h keeps a 00Z column (evening local) on the previous calendar date,
-        # which is the date the high actually happened.
-        represented = (valid_local - timedelta(hours=6)).date()
-        mismatch = bool(mdate and represented != mdate)
-        if mismatch:
-            flags["DATE_MISMATCH"] += 1
-        p = None
-        if threshold:
-            p = model_probability_for_market(threshold, chosen["values"],
-                                             cfg["probability_model"]["sigma_multiplier"])
-        out.append(
-            f"  {ticker} [{desc}] close={m.get('close_time')} target_hour={hour} -> "
-            f"FHR {chosen['forecast_hour']} valid {_fmt_dt(valid_utc)} = {_fmt_local(valid_local)} "
-            f"[{kind}]{' DATE_MISMATCH(market ' + str(mdate) + ' vs col ' + str(represented) + ')' if mismatch else ''} "
-            f"p50={chosen['values']['p50']} p10..p90={json.dumps(list(chosen['values'].values()))}"
-            + (f" model_P(YES)={p['clamped']:.3f} raw={p['raw']:.3f}" if p else "")
-        )
-    out.append(f"  SUMMARY: {json.dumps(flags)}")
+        new = nbm.get_max_temp_forecast(parsed, run_id, mdate) if mdate else None
+        hour = target_forecast_hour(run_id, m.get("close_time"))
+        old = nbm.get_forecast_with_meta(parsed, hour) if hour is not None else None
+
+        def describe(pick):
+            if pick is None:
+                return "none"
+            vu = nbm.valid_time_utc(run_id, pick["forecast_hour"])
+            vl = vu.astimezone(tz)
+            return (f"FHR {pick['forecast_hour']} valid {_fmt_dt(vu)} ({_fmt_local(vl)}) "
+                    f"p50={pick['values']['p50']} [{classify_local_hour(vl.hour).split(' ')[0]}]")
+
+        line = f"  {ticker} [{desc}] market_date={mdate}\n      NEW: {describe(new)}"
+        if new:
+            counts["new_ok"] += 1
+            if threshold:
+                p = model_probability_for_market(threshold, new["values"],
+                                                 cfg["probability_model"]["sigma_multiplier"])
+                line += f"  -> model_P(YES)={p['clamped']:.3f} (raw {p['raw']:.3f})"
+        else:
+            counts["new_missing"] += 1
+        line += f"\n      OLD: {describe(old)}"
+        if old and (not new or old["forecast_hour"] != new["forecast_hour"]):
+            counts["old_differs_from_new"] += 1
+        if old:
+            vl = nbm.valid_time_utc(run_id, old["forecast_hour"]).astimezone(tz)
+            if classify_local_hour(vl.hour).startswith("MORNING"):
+                counts["old_was_min_column"] += 1
+        out.append(line)
+    out.append(f"  SUMMARY: {json.dumps(counts)}")
     return out
 
 

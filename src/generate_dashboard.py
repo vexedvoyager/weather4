@@ -139,7 +139,7 @@ def generate_dashboard_html(cfg: dict, db_path: str) -> str:
     open_positions = _get_open_positions(db_path)
     recent_settled = _get_recent_settled(db_path)
     pnl_series = _get_pnl_series(db_path)
-    brier = brier_tracker.compute_brier_summary(db_path)
+    brier = brier_tracker.compute_brier_summary(db_path, bot_version=BOT_VERSION)   # current version only (v6.1)
 
     # v5: shadow trades (candidates the confidence floor/ceiling excluded
     # from real trading - see IMPROVEMENTS.md item #10)
@@ -200,7 +200,7 @@ def generate_dashboard_html(cfg: dict, db_path: str) -> str:
 
     # --- Brier section -----------------------------------------------------------
     if brier["n"] == 0:
-        brier_html = '<p class="neutral">No settled trades yet - nothing to audit.</p>'
+        brier_html = '<p class="neutral">No settled trades for this version yet - nothing to audit. (Earlier versions used the wrong NBM column and are excluded.)</p>'
     elif brier["confidence_level"] == "insufficient":
         brier_html = (
             f'<p class="neutral">{brier["n"]} settled trade(s) so far - '

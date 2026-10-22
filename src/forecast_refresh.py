@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from src import db, nbm
 from src.config import load_config, resolve_path
-from src.market_parsing import describe_threshold, extract_threshold
+from src.market_parsing import describe_threshold, extract_threshold, market_date_from_ticker
 from src.probability import probability_of_exceeding, probability_within_range
 from src.scan_common import build_client
 from src.stations import verify_station
@@ -27,33 +27,51 @@ from src.stations import verify_station
 logger = logging.getLogger("forecast_refresh")
 
 
+# Kalshi daily-high markets settle on the WHOLE-DEGREE high temperature the
+# NWS reports, so every contract is a statement about integers:
+#     "greater than 75"  (floor_strike 75)  -> high >= 76 -> temperature > 75.5
+#     "less than 68"     (cap_strike 68)    -> high <= 67 -> temperature < 67.5
+#     "70-71"  (floor 70, cap 71)           -> high in {70, 71} -> 69.5 < t < 71.5
+# The forecast is a continuous distribution, so each integer boundary sits half
+# a degree outside the printed strike. Before v6.1 the raw strikes were used,
+# which made a full ladder of markets sum to only 0.44-0.68 instead of 1.0 -
+# harmless when forecasts were wildly wrong, but a large error now that NBM's
+# spread is only 2-3F. (v6.1, IMPROVEMENTS.md item #24.)
+WHOLE_DEGREE_HALF_WIDTH = 0.5
+
+
 def model_probability_for_market(threshold: dict, pct: dict, sigma_multiplier: float) -> dict:
     """
-    Computes model probability for a market's threshold. "below" markets
-    correctly use the complement of "probability of exceeding" - see
-    IMPROVEMENTS.md's resolved-issues log for the real bug this fixed.
+    Computes model probability that a market resolves YES, accounting for
+    whole-degree settlement (see WHOLE_DEGREE_HALF_WIDTH). "below" markets
+    use the complement of "probability of exceeding" - see IMPROVEMENTS.md's
+    resolved-issues log for the real bug that fixed.
+
+    NOTE: "greater than X" and "less than X" for the SAME X are NOT
+    complements - the exact whole-degree value X belongs to neither.
 
     Returns {"clamped": float, "raw": float} - the clamped value is what
     drives real trading decisions everywhere; the raw value is kept
     alongside for shadow-tracking (see src/price_check.py and
-    IMPROVEMENTS.md item #10), so the floor/ceiling choice can eventually
-    be checked against what would have happened without it.
+    IMPROVEMENTS.md item #10).
     """
+    h = WHOLE_DEGREE_HALF_WIDTH
     if threshold["kind"] == "single":
-        p_exceeds_clamped = probability_of_exceeding(pct, threshold["value"], sigma_multiplier, clamp=True)
-        p_exceeds_raw = probability_of_exceeding(pct, threshold["value"], sigma_multiplier, clamp=False)
+        if threshold["direction"] == "above":
+            boundary = threshold["value"] + h      # high >= value + 1  <=>  t > value + 0.5
+        else:  # "below"
+            boundary = threshold["value"] - h      # high <= value - 1  <=>  t < value - 0.5
+        p_exceeds_clamped = probability_of_exceeding(pct, boundary, sigma_multiplier, clamp=True)
+        p_exceeds_raw = probability_of_exceeding(pct, boundary, sigma_multiplier, clamp=False)
         if threshold["direction"] == "above":
             return {"clamped": p_exceeds_clamped, "raw": p_exceeds_raw}
-        else:  # "below"
-            return {"clamped": round(1 - p_exceeds_clamped, 6), "raw": round(1 - p_exceeds_raw, 6)}
-    else:  # "between"
-        clamped = probability_within_range(
-            pct, threshold["floor"], threshold["cap"], sigma_multiplier, clamp=True
-        )
-        raw = probability_within_range(
-            pct, threshold["floor"], threshold["cap"], sigma_multiplier, clamp=False
-        )
-        return {"clamped": clamped, "raw": raw}
+        return {"clamped": round(1 - p_exceeds_clamped, 6), "raw": round(1 - p_exceeds_raw, 6)}
+
+    # "between": high in [floor, cap] <=> floor - 0.5 < t < cap + 0.5
+    lo, hi = threshold["floor"] - h, threshold["cap"] + h
+    clamped = probability_within_range(pct, lo, hi, sigma_multiplier, clamp=True)
+    raw = probability_within_range(pct, lo, hi, sigma_multiplier, clamp=False)
+    return {"clamped": clamped, "raw": raw}
 
 
 def target_forecast_hour(run_id: str, close_time_str: str) -> int | None:
@@ -161,10 +179,17 @@ def run_forecast_refresh(cfg: dict):
                 too_close_hours_by_city.setdefault(city, set()).add(hour)
                 continue
 
-            chosen = nbm.get_forecast_with_meta(parsed_station, hour)
+            # v6.1: pick the daily-MAX column for the market's own date (see
+            # nbm.get_max_temp_forecast) - NOT whichever column is nearest the
+            # close time, which was an overnight minimum in v5 and earlier.
+            market_date = market_date_from_ticker(ticker)
+            if market_date is None:
+                rejection_counts["no_market_date_in_ticker"] += 1
+                continue
+            chosen = nbm.get_max_temp_forecast(parsed_station, run_id, market_date)
             if chosen is None:
-                rejection_counts["no_nbm_coverage_at_target_hour"] += 1
-                failed_coverage_hours_by_city.setdefault(city, set()).add(hour)
+                rejection_counts["no_nbm_max_column_for_market_date"] += 1
+                failed_coverage_hours_by_city.setdefault(city, set()).add(str(market_date))
                 continue
             pct = chosen["values"]
             valid_dt = nbm.valid_time_utc(run_id, chosen["forecast_hour"])
@@ -185,7 +210,7 @@ def run_forecast_refresh(cfg: dict):
     if rejection_counts:
         logger.info("Rejection breakdown (why markets weren't cached): %s", dict(rejection_counts))
     for city, hours in failed_coverage_hours_by_city.items():
-        logger.info("city=%s target hours that had NO NBM coverage: %s", city, sorted(hours))
+        logger.info("city=%s market dates with NO NBM daily-max column: %s", city, sorted(hours))
     for city, hours in too_close_hours_by_city.items():
         logger.info("city=%s target hours rejected by the same-day floor (min_forecast_hour): %s",
                     city, sorted(hours))

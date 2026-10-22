@@ -31,7 +31,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from src import brier_tracker, db
-from src.version import BOT_VERSION
+from src.version import BOT_VERSION, INVALID_FORECAST_VERSIONS
 from src.config import load_config, resolve_path
 
 SPARK_CHARS = "▁▂▃▄▅▆▇█"
@@ -289,31 +289,40 @@ def generate_summary(cfg: dict, date_str: str = None) -> str:
         lines.append("")
 
     # --- Model self-audit --------------------------------------------------------
-    brier_summary = brier_tracker.compute_brier_summary(db_path)
-    if brier_summary["n"] > 0:
-        if brier_summary["confidence_level"] == "insufficient":
-            lines.append(
-                f"Model self-audit: {brier_summary['n']} settled trade(s) - "
-                f"need {brier_tracker.MIN_TRADES_FOR_ANY_READING}+ for a meaningful reading."
-            )
-        else:
-            warn = " ⚠" if brier_summary["verdict"] == "NO SKILL" else ""
-            market_note = "beats" if brier_summary["beats_market"] else "WORSE than"
-            lines.append(
-                f"Model self-audit ({brier_summary['n']} trades, lower is better): "
-                f"model {brier_summary['model_brier']:.4f} | market price "
-                f"{brier_summary['market_brier']:.4f} | base rate "
-                f"{brier_summary['base_rate_brier']:.4f} — {brier_summary['verdict']}{warn}, "
-                f"{market_note} the market"
-            )
-            by_version = brier_summary.get("by_version") or {}
-            if len(by_version) > 1:
-                parts = [
-                    f"{v} {d['model_brier']:.3f}/{d['market_brier']:.3f} (n={d['n']})"
-                    for v, d in by_version.items()
-                ]
-                lines.append("  By version (model/market): " + "  ".join(parts))
-        lines.append("")
+    # v6.1: the headline scores ONLY the current version. v4-v6.0 forecast every
+    # daily high from an overnight-minimum column (IMPROVEMENTS.md #19), so their
+    # scores say nothing about how good NBM actually is - they stay visible in the
+    # by-version line, but they no longer count against the corrected model.
+    brier_all = brier_tracker.compute_brier_summary(db_path)
+    brier_cur = brier_tracker.compute_brier_summary(db_path, bot_version=BOT_VERSION)
+    if brier_cur["n"] == 0:
+        lines.append(f"Model self-audit: no settled {BOT_VERSION} trades yet.")
+    elif brier_cur["confidence_level"] == "insufficient":
+        lines.append(
+            f"Model self-audit ({BOT_VERSION}): {brier_cur['n']} settled trade(s) - "
+            f"need {brier_tracker.MIN_TRADES_FOR_ANY_READING}+ for a meaningful reading."
+        )
+    else:
+        warn = " ⚠" if brier_cur["verdict"] == "NO SKILL" else ""
+        market_note = "beats" if brier_cur["beats_market"] else "WORSE than"
+        lines.append(
+            f"Model self-audit ({BOT_VERSION}, {brier_cur['n']} trades, lower is better): "
+            f"model {brier_cur['model_brier']:.4f} | market price "
+            f"{brier_cur['market_brier']:.4f} | base rate "
+            f"{brier_cur['base_rate_brier']:.4f} — {brier_cur['verdict']}{warn}, "
+            f"{market_note} the market"
+        )
+    by_version = brier_all.get("by_version") or {}
+    if len(by_version) > 1 or (by_version and BOT_VERSION not in by_version):
+        parts = [
+            f"{v}{'*' if v in INVALID_FORECAST_VERSIONS else ''} "
+            f"{d['model_brier']:.3f}/{d['market_brier']:.3f} (n={d['n']})"
+            for v, d in by_version.items()
+        ]
+        lines.append("  By version (model/market): " + "  ".join(parts))
+        if any(v in INVALID_FORECAST_VERSIONS for v in by_version):
+            lines.append("  * used the wrong NBM column (overnight low); not a test of NBM")
+    lines.append("")
 
     # --- Unbiased scorecard from every observed market (v6.0, item #22) ----------
     obs_text = brier_tracker.format_observation_brier(

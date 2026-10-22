@@ -134,6 +134,14 @@ def fetch_latest_bulletin(now: datetime = None, timeout: int = 30) -> tuple[str,
     )
 
 
+def _cell_width(column_spans: list) -> int:
+    """Width of one bulletin cell, from the spacing of the FHR header tokens
+    (all real bulletins use 4: a 3-character value field plus a separator)."""
+    ends = [e for _s, e in column_spans]
+    gaps = sorted(b - a for a, b in zip(ends, ends[1:]) if b > a)
+    return gaps[len(gaps) // 2] if gaps else 4
+
+
 def get_station_block(bulletin_text: str, station_id: str) -> list | None:
     """
     Returns the bulletin lines belonging to one station (header line
@@ -216,26 +224,35 @@ def parse_station_maxt(bulletin_text: str, station_id: str) -> dict | None:
         logger.warning("nbm_parse no_fhr_row station=%s", station_id)
         return None
 
-    # CRITICAL: NBM text bulletins are fixed-width. Percentile rows like
-    # MaxT only print a value in the column matching the relevant forecast
-    # hour (e.g. the 00Z column for a max) and leave OTHER columns blank -
-    # not zero, not omitted, just whitespace. A naive line.split() collapses
-    # that whitespace and silently shifts every subsequent value into the
-    # wrong column. To avoid this, we derive each column's fixed character
-    # position from the FHR header row itself, then read every data row at
-    # those exact character offsets rather than splitting on whitespace.
+    # CRITICAL: NBM text bulletins are fixed-width. Percentile rows only
+    # print a value in some columns and leave OTHERS blank - not zero, not
+    # omitted, just whitespace. A naive line.split() collapses that
+    # whitespace and silently shifts every subsequent value into the wrong
+    # column. So each data row is read at the exact character positions of
+    # the FHR header row instead.
+    #
+    # v6.1 FIX (found by the v6.0 column diagnostic on a real bulletin):
+    # the real layout is a run of 4-character cells - a 3-character
+    # right-justified value followed by a separator that is '|' after every
+    # 12Z column and a space after every 00Z column, e.g.
+    #     FHR    17| 29  41| 53  65| 77  89|101 113|125
+    #     TXNP5  52| 70  53| 70  54| 70  55| 72  56| 68
+    # The earlier reader took a window starting 2 characters left of each
+    # header token. That window picked up the '|' separator in front of
+    # every 00Z column - so EVERY 00Z column (where NBM puts the daily
+    # MAXIMUM temperature) was read as blank and only the 12Z columns
+    # (overnight MINIMUM) were ever seen. It also swallowed the previous
+    # cell's last digit for 3-digit hours (FHR >= 100). Values are
+    # right-justified to the end of the header token, so each cell is now
+    # read as the cell_width characters ENDING at the token's end, with
+    # '|' treated as the blank it is.
     column_spans = [m.span() for m in re.finditer(r"\d+", fhr_line)]
+    cell_width = _cell_width(column_spans)
 
     def read_row_by_column(line: str) -> list:
         values = []
-        for start, end in column_spans:
-            # Numeric tokens in data rows are right-justified within a
-            # column of the same width as the header token, so we widen
-            # the read window slightly to the left to catch right-aligned
-            # values that start before the header token's own start
-            # position (e.g. a 2-digit value under a 1-digit hour header).
-            window_start = max(0, start - 2)
-            segment = line[window_start:end].strip()
+        for _start, end in column_spans:
+            segment = line[max(0, end - cell_width):end].replace("|", " ").strip()
             if segment == "" or segment == "-" or not re.fullmatch(r"-?\d+", segment):
                 values.append(None)
             else:
@@ -284,6 +301,48 @@ def valid_time_utc(run_id: str, forecast_hour: int) -> datetime | None:
     except (ValueError, AttributeError):
         return None
     return run_dt + timedelta(hours=forecast_hour)
+
+
+def get_max_temp_forecast(parsed: dict, run_id: str, market_date) -> dict | None:
+    """
+    The percentile forecast for the daily HIGH of `market_date` (the local
+    calendar date a Kalshi daily-high market settles on).
+
+    WHY THIS COLUMN (v6.1, confirmed against a real bulletin): NBM's TXN
+    rows hold TWO kinds of values in alternating columns - the column valid
+    at 12Z is the overnight MINIMUM temperature, the column valid at 00Z is
+    the daytime MAXIMUM (e.g. Chicago, run 2026-10-21T19Z: FHR 17 / 12Z =
+    52F min, FHR 29 / 00Z = 70F max; the Chicago market for that date was
+    priced around 70F). The 00Z column valid at the START of the day AFTER
+    market_date covers the afternoon of market_date for every contiguous-US
+    time zone, so that is the column used.
+
+    v5 and earlier instead took whichever non-blank column was nearest the
+    market's close time, and (because of a parsing bug, see
+    parse_station_maxt) could only ever see the 12Z minimum columns - so
+    every daily-high market was forecast from an overnight low.
+
+    Returns {"values": {...p10..p90}, "column_index": int,
+    "forecast_hour": int} or None if that exact column is absent or
+    incomplete (e.g. a same-day market whose 00Z column has already passed
+    the bulletin's first forecast hour). Never falls back to another column.
+    """
+    hours = parsed.get("forecast_hours")
+    if not hours or market_date is None:
+        return None
+    target = datetime(market_date.year, market_date.month, market_date.day,
+                      tzinfo=timezone.utc) + timedelta(days=1)   # 00Z the next day
+    for idx, fhr in enumerate(hours):
+        if valid_time_utc(run_id, fhr) != target:
+            continue
+        out = {}
+        for key in ("p10", "p25", "p50", "p75", "p90"):
+            values = parsed.get(key)
+            if not values or idx >= len(values) or values[idx] is None:
+                return None
+            out[key] = values[idx]
+        return {"values": out, "column_index": idx, "forecast_hour": fhr}
+    return None
 
 
 def get_forecast_with_meta(

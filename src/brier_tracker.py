@@ -163,12 +163,19 @@ def compute_observation_brier(db_path: str) -> dict:
         if n == 0:
             return None
         outs = [1.0 if r["outcome"] == "yes" else 0.0 for r in rs]
-        return {
+        result = {
             "n": n,
             "model_brier": round(sum((r["model_prob"] - o) ** 2 for r, o in zip(rs, outs)) / n, 4),
             "market_brier": round(
                 sum((r["market_yes_cents"] / 100.0 - o) ** 2 for r, o in zip(rs, outs)) / n, 4),
         }
+        # The same forecast WITHOUT the 5%/95% confidence clamp - lets the data decide
+        # whether the clamp (a stopgap from v5) is helping or hurting now that forecasts
+        # come from the right NBM column.
+        if all(r.get("raw_model_prob") is not None for r in rs):
+            result["raw_model_brier"] = round(
+                sum((r["raw_model_prob"] - o) ** 2 for r, o in zip(rs, outs)) / n, 4)
+        return result
 
     by_city = {}
     for city in sorted({r["city"] for r in rows}):
@@ -189,12 +196,14 @@ def format_observation_brier(obs: dict) -> str:
     for city, d in obs["by_city"].items():
         tag = " (shadow)" if d["is_shadow"] else ""
         better = "model" if d["model_brier"] < d["market_brier"] else "market"
+        raw = f" (unclamped {d['raw_model_brier']:.3f})" if "raw_model_brier" in d else ""
         lines.append(
-            f"  {city}{tag}: n={d['n']}  model {d['model_brier']:.3f}  "
+            f"  {city}{tag}: n={d['n']}  model {d['model_brier']:.3f}{raw}  "
             f"market {d['market_brier']:.3f}  -> {better} closer"
         )
     o = obs["overall"]
-    lines.append(f"  ALL: n={o['n']}  model {o['model_brier']:.3f}  market {o['market_brier']:.3f}")
+    raw = f" (unclamped {o['raw_model_brier']:.3f})" if "raw_model_brier" in o else ""
+    lines.append(f"  ALL: n={o['n']}  model {o['model_brier']:.3f}{raw}  market {o['market_brier']:.3f}")
     return "\n".join(lines)
 
 
