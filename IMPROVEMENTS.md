@@ -584,6 +584,70 @@ surface area (qmd percentile field names, eccodes install feasibility)
 remains; the text-bulletin approach is confirmed working in production
 now, which reduces the urgency.
 
+
+## v6 plan (logged 2026-10-21, from the v5 analysis)
+
+Finding: v5 lost $232 on 122 settled trades (v4: $118 on 97). The model is
+biased in one direction (it predicts highs far too low), not merely noisy.
+Corrected Brier is 0.469 (all trades) vs 0.243 base rate vs 0.137 for the
+market price. Suspected cause: nbm.py reads "daily max/min" TXN percentiles
+and picks the column nearest market close without checking whether it is a
+max (00Z) or a min (12Z) column. UNCONFIRMED until the diagnostic runs.
+
+### v6.0 - diagnose and instrument (paper only)
+
+#19 (open) Max/min column diagnostic
+    Print TXNP5 for every column for KAUS and KMDW, and show which column
+    the bot selects for each open market. Confirms or rejects the hypothesis.
+
+#20 (open) Fix the Brier tracker
+    forecast_prob is P(YES), but brier_tracker.py scores it as P(chosen
+    side wins), which is wrong for every NO trade. Score the traded side's
+    probability, and print the market-price Brier next to the model Brier
+    and the base rate. (Reported 0.6235 -> corrected 0.469.)
+
+#21 (open) Record what the model actually used
+    Store, per trade: bot_version (see #18), the full P10-P90 ladder, the
+    NBM column/valid time chosen, and the settlement station's actual high
+    (from the NWS climate report) so error can be measured in degrees F.
+
+#22 (open) Shadow cities
+    Add shadow_cities to config.yaml. For these the bot records forecast,
+    market price and settled outcome, but opens no paper trades. Goal: more
+    data faster, and a wider range of climates to test #19. A city graduates
+    to paper trading only after the model fix is confirmed.
+    Each new city needs: verified settlement station (CLI naming, item #3),
+    Kalshi series ticker, and a check that its market types parse.
+
+#23 (open) Series discovery script
+    New script (e.g. src/list_kalshi_series.py) that lists the daily-high
+    temperature series Kalshi actually offers, with city and station text,
+    so shadow cities are chosen from real data, not guessed tickers.
+    Run it from GitHub Actions and paste the output back.
+
+#5  Fee modeling moves into v6.0 (fees are currently 0 in all P&L).
+
+### v6.1 - fix and calibrate (after v6.0 results)
+
+#24 (open) Fix column selection: use max-temperature columns only for daily
+    highs; match the valid time to the station's local day (watch DST).
+#25 (open) Calibration and market blend: per-city bias correction, fitted
+    probability calibration, and a model/market weighted blend. Filters:
+    price band 6-94 cents and a ~30-point cap on model-vs-market gap.
+    (v5 data: price <=40c was 1 win in 53 trades; >50-point gap was 0 for 40.)
+
+### v6.2 - scale and speed
+
+#1  External pinger for 5-minute scans (already logged).
+#26 (open) Same-day markets using live observations (currently excluded).
+#27 (open) Edge-based position sizing instead of flat $5.
+
+### Go-live gate (all required before real money)
+- 401 on /portfolio/positions fixed
+- >=150 settled trades since the model fix, over >=4 weeks
+- Corrected Brier below base rate and not worse than the market-price Brier
+- Positive ROI after fees
+- Tiny starting size; daily loss limit stays on
 ---
 
 ## Log of resolved issues (for context, not action)
