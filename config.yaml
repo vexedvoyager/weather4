@@ -1,5 +1,5 @@
 # =============================================================================
-# Predict Weather Bot v6.1 — Configuration
+# Predict Weather Bot v6.1.1 — Configuration
 # =============================================================================
 # Version history:
 #   v5 went active: 2026-09-25 (confidence floor/ceiling + shadow-tracking,
@@ -14,6 +14,8 @@
 #     reads the daily-MAXIMUM column and models whole-degree settlement — see
 #     IMPROVEMENTS.md items #24 and #25. Results from v4-v6.0 are NOT a test
 #     of NBM and are excluded from the headline Brier score.)
+#   v6.1.1 went active: 2026-10-22 (bracket probabilities are clamped on the
+#     final result, not on each end, so a tail bracket is never reported as 0%.)
 # =============================================================================
 # This is the ONE file you should need to touch regularly. Everything here
 # is plain English settings, not code.
