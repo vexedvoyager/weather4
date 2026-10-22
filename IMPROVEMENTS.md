@@ -619,3 +619,6 @@ now, which reduces the urgency.
   P&L chart, per-city breakdown, open/settled positions tables using the
   plain-English trade descriptions, and the Brier self-audit — all
   regenerated automatically after every Price Check run.
+
+  ### 26. Bracket clamp applied to final result, not each end
+Tail brackets were reported as 0.000 (both ends clamped to the same bound); brackets near a tail were shrunk. Now computed raw, then clamped to [5%, 95%]. (v6.1.1)
