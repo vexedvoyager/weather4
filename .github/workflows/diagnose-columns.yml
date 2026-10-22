@@ -1,0 +1,45 @@
+name: Diagnose NBM Columns
+
+# Manual only. Prints which NBM forecast columns the bot reads for each
+# city and market, so we can check whether daily-HIGH forecasts are being
+# taken from the right column (v6.0, IMPROVEMENTS.md item #19). Read-only:
+# never trades and never writes to the database.
+#
+# After it finishes, either copy the log text or download the
+# "nbm-column-diagnostic" artifact (a text file) and upload it to Claude.
+on:
+  workflow_dispatch:
+    inputs:
+      extra_stations:
+        description: "Optional extra stations to inspect, comma-separated ICAO codes (e.g. KDEN,KPHX)"
+        required: false
+        default: ""
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run column diagnostic
+        env:
+          KALSHI_KEY_ID: ${{ secrets.KALSHI_KEY_ID }}
+          KALSHI_PRIVATE_KEY: ${{ secrets.KALSHI_PRIVATE_KEY }}
+          EXTRA_STATIONS: ${{ github.event.inputs.extra_stations }}
+        run: python -m src.diagnose_columns --extra-stations "$EXTRA_STATIONS" | tee nbm_column_diagnostic.txt
+
+      - name: Save diagnostic as a downloadable file
+        uses: actions/upload-artifact@v4
+        with:
+          name: nbm-column-diagnostic
+          path: nbm_column_diagnostic.txt
