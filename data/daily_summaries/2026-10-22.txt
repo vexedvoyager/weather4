@@ -1,0 +1,29 @@
+=== Predict Weather Bot v6.1.1 — 2026-10-22 ===
+Mode: PAPER
+
+Yesterday: $-26.65 (2W / 6L)  |  Deployed: $43.72/$50  |  Open: 9
+
+New trades, last 24h (9):
+  Chicago: YES on high < 68°F @ 2c (95.0% conf) [!] [KXHIGHCHI-26OCT22-T68]
+  Chicago: NO on high 74-75°F @ 83c (0.0% conf) [!] [KXHIGHCHI-26OCT22-B74.5]
+  Austin: YES on high < 84°F @ 2c (95.0% conf) [!] [KXHIGHAUS-26OCT22-T84]
+  New York: YES on high < 63°F @ 2c (18% conf) [KXHIGHNY-26OCT22-T63]
+  New York: NO on high 67-68°F @ 85c (5.0% conf) [!] [KXHIGHNY-26OCT22-B67.5]
+  Miami: NO on high 84-85°F @ 54c (24% conf) [KXHIGHMIA-26OCT22-B84.5]
+  Los Angeles: NO on high > 71°F @ 78c (5.0% conf) [!] [KXHIGHLAX-26OCT22-T71]
+  Los Angeles: NO on high 70-71°F @ 55c (16% conf) [KXHIGHLAX-26OCT22-B70.5]
+  Miami: YES on high 86-87°F @ 2c (10% conf) [KXHIGHMIA-26OCT22-B86.5]
+
+Settled, last 24h (2):
+  Miami: NO on high 85-86°F — WON +9.10 [KXHIGHMIA-26OCT21-B85.5]
+  Austin: YES on high < 83°F — LOST -4.98 [!]  |  actual: high ≥ 83°F [KXHIGHAUS-26OCT21-T83]
+
+Net P&L, last 24h: $+4.12
+
+Model self-audit: no settled v6.1.1 trades yet.
+  By version (model/market): v4* 0.501/0.174 (n=97)  v5* 0.457/0.108 (n=132)
+  * used the wrong NBM column (overnight low); not a test of NBM
+
+14-day P&L: ▄▄▁█▁▃▅▃▄▄▂▅▁▆  (range $-29 to $+11, cumulative $-157.98)
+
+Simulated — no real money at risk. Consider live mode once these numbers look sane for a couple of weeks.
