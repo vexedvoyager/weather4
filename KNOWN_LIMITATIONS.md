@@ -155,3 +155,15 @@ See `TROUBLESHOOTING.md` for a full phrase-by-phrase guide. The short version:
   signal to pause before going live
 - `nbm_parse` warnings appearing on every single run — worth investigating
 
+- **NBM percentiles are whole degrees (v6.1).** The bulletin prints
+  integer percentiles, so ladders often tie (e.g. p25 = p50 = 70). The
+  half-degree settlement boundaries avoid exact ties, but the model still
+  interpolates linearly between rounded values.
+- **The 5%/95% clamp now distorts correct forecasts.** It was a stopgap from
+  v5, when forecasts were wrong. Applied to each side of a bracket it can
+  shrink a real 17% bracket to 12.5%. v6.1 keeps it (no trading change before
+  evidence); the scorecard now reports Brier with and without it.
+- **Same-day highs are skipped.** Markets closing less than 24 hours after the
+  NBM run are ignored, so the more accurate 07Z/13Z runs are not used for
+  same-day highs. Revisit once the corrected model shows skill.
+

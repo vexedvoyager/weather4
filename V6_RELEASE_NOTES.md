@@ -1,39 +1,59 @@
-# Predict Weather Bot v6.0 — release notes
+# Predict Weather Bot v6.1 — release notes
 
-**Theme: diagnose and instrument. Trading behavior is unchanged from v5.**
-v6.0 exists to find out WHY the model loses to the market, and to start
-collecting the data needed to fix it properly in v6.1.
+## v6.1 — the model fix (2026-10-22)
 
-## What changed
+The v6.0 column diagnostic, run on a real NOAA bulletin, found why the model
+never beat the market. **From v4 through v6.0, every daily-high market was
+forecast from NBM's overnight-MINIMUM column.**
 
-| Item | What | Where |
-|---|---|---|
-| #19 | NBM column diagnostic: shows which forecast column the bot reads for each market (daily max vs overnight min) | `src/diagnose_columns.py`, workflow **Diagnose NBM Columns** |
-| #20 | Brier tracker fix: NO trades were scored on the wrong probability. Now also reports the market-price Brier and splits by version | `src/brier_tracker.py` |
-| #18 | `bot_version` stamped on trades, shadow trades, observations; version printed in the summary and dashboard; v4/v5 history backfilled by go-live date | `src/version.py`, `src/db.py` |
-| #21 | Each trade records which NBM run/column/valid-time/percentile ladder produced its probability, plus Kalshi's `expiration_value` at settlement | `src/db.py`, `forecast_refresh.py`, `settle_check.py` |
-| #22 | Market observations: one model-vs-market snapshot per market for EVERY city (including shadow-only cities), settled later — an unbiased scorecard | `src/observations.py`, `config.yaml: shadow_cities` |
-| #23 | Series discovery: lists Kalshi's daily-high series, their settlement stations, and whether NBM can forecast them | `src/list_kalshi_series.py`, workflow **List Kalshi Series** |
-| #5 | Fee modeling: estimated entry fee subtracted from paper P&L | `src/fees.py`, `config.yaml: fees` |
+* NBM's `TXN` rows alternate: the **12Z** columns are overnight minimums, the
+  **00Z** columns are daytime maximums. (Chicago, run 2026-10-21T19Z: 12Z =
+  52°F, 00Z = 70°F. Chicago's market ladder for that day was priced around
+  70°F.)
+* The bulletin separates cells with `|` after every 12Z column. The parser's
+  character window picked up that `|`, so **every 00Z column read as blank**
+  and the bot could only ever see the minimums. (It also dropped most columns
+  at 100+ forecast hours.)
+* Result: the model said "the high will be ~55°F" about days that reached
+  ~87°F. It bought YES on every "less than" market (8% won) and NO on nearly
+  every bracket. That is the YES-loses / NO-wins pattern seen since week one.
 
-## Upgrading
+| Change | Where |
+|---|---|
+| Parser reads the real cell layout (4-character cells, `\|` separators, 3-digit hours) | `src/nbm.py` |
+| Daily high comes from the **00Z column of the day after the market date**; never "nearest column" | `nbm.get_max_temp_forecast`, `forecast_refresh.py` |
+| **Whole-degree settlement**: "greater than 75" = 76+, "less than 68" = 67−, "70–71" = 69.5 to 71.5. A full ladder of markets now sums to 1.0 (it summed to 0.44–0.68) | `forecast_refresh.model_probability_for_market` |
+| Headline Brier scores **only the current version**; v4/v5/v6.0 are listed with a `*` as not a test of NBM | `daily_summary.py`, `generate_dashboard.py`, `version.py` |
+| 8 shadow cities prefilled (Denver, Phoenix, Seattle, Atlanta, Dallas, Houston, Boston, Minneapolis) | `config.yaml` |
+| Scorecard shows Brier with and without the 5%/95% clamp | `brier_tracker.py` |
+| Regression tests built from the **real** bulletin | `tests/test_real_bulletin_v61.py`, `tests/fixtures/` |
 
-1. Replace/add the files listed in the "update" zip (same folder structure).
-   Do NOT upload any `data/trades.db` — your live database stays as is. It
-   is migrated automatically the first time v6.0 runs (new columns are added
-   and old trades are stamped `v4` / `v5`; nothing is deleted).
-2. In GitHub: Actions → **Diagnose NBM Columns** → Run workflow. Download
-   the `nbm-column-diagnostic` artifact (or copy the log) and share it.
-3. Actions → **List Kalshi Series** → Run workflow. Share its output; we
-   pick shadow cities from it.
+Trading rules (edge thresholds, risk limits, the 5%/95% clamp, the
+"≥24h to close" same-day floor) are **unchanged**. v6.1 is a clean restart of
+the evidence: nothing before it measures how good NBM is.
 
-## What to expect afterwards
+## v6.0 — diagnose and instrument (2026-10-22)
 
-* The Daily Summary header reads `v6.0`, the Brier line shows model vs
-  market price vs base rate, and a "Model vs market, ALL markets observed"
-  section appears once observed markets start settling (about a day).
-* The corrected Brier on the v4+v5 history is 0.469 (the old tracker
-  reported 0.6235). It is still above the 0.243 base rate: the model has no
-  skill yet. That is the problem v6.1 addresses.
-* Paper P&L from v6.0 onward includes the estimated fee, so it will look
-  slightly worse than the same trades did before.
+Brier tracker fix (NO trades were scored on the wrong probability), market
+price Brier benchmark, version stamps, forecast provenance, estimated fees,
+market observations, shadow cities, series discovery, column diagnostic.
+
+## Upgrading from v6.0
+
+1. Upload the files in the v6.1 update zip (same folder structure), including
+   the new `tests/fixtures/` folder. Do NOT upload any `data/trades.db`.
+2. Actions → **Diagnose NBM Columns** → Run workflow. Section 5 now shows the
+   NEW pick next to the OLD pick for every market; every NEW pick should read
+   `[AFTERNOON/EVENING]` at a 00Z time.
+3. Wait for the next **Forecast Refresh**. Its log should show markets cached
+   for all cities (previously New York and Miami often showed none).
+
+## What to expect
+
+* The Daily Summary header reads `v6.1`; the Brier headline reads "no settled
+  v6.1 trades yet" until the first v6.1 trades settle (about 2 days), and
+  needs 30+ to be meaningful.
+* "Model vs market, ALL markets observed" fills in as v6.1 markets settle —
+  including the 8 shadow cities — and is the honest scorecard.
+* Verdict gates are unchanged: no live mode until the corrected model has
+  100+ settled trades, beats the base rate, and is not worse than the market.

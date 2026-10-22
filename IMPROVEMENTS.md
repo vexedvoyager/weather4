@@ -7,38 +7,18 @@ real usage, not speculative "nice to haves."
 
 ## Open items
 
-### 1. External pinger needed for reliable scan frequency (REVISED - real evidence, no longer speculative)
+### 1. Monitor whether the 5-minute Price Check schedule is actually reliable
 
-**Why this supersedes the original "wait and monitor" framing:** the
-original version of this item was deliberately low-priority pending
-real observation. That evidence is now in: Price Check, configured for
-a 5-minute schedule, is actually running every 2-5 HOURS in practice -
-a 24-60x shortfall, not minor best-effort slippage.
+**Why:** GitHub's cron scheduling is documented as best-effort even at
+its minimum 5-minute interval.
 
-**Root cause confirmed via current GitHub Community reports (not
-speculation):** a well-documented, platform-wide degradation of
-scheduled (`cron`) GitHub Actions workflows began around August 26-27,
-2026, affecting many unrelated repositories simultaneously. Reports
-describe the same progression this project experienced - runs going
-from reliable to hours-late to not firing at all. Critically,
-`workflow_dispatch` (manual or API-triggered runs) continued firing
-instantly and reliably throughout, in every report checked - only the
-automatic `schedule:` trigger degraded. Standard fixes (off-peak cron
-minutes, renaming the workflow file, disabling/re-enabling) did NOT
-reliably restore normal scheduling for affected users.
+**Proposed fix (only if this turns out to be a real problem):** an
+external pinger (e.g. cron-job.org) calling GitHub's API to trigger the
+workflow, bypassing GitHub's own scheduler reliability.
 
-**Proposed fix:** an external scheduler (e.g. cron-job.org, free tier)
-that calls GitHub's `workflow_dispatch` API endpoint for Price Check
-directly, on a real schedule - bypassing GitHub's own `schedule:`
-trigger entirely, since that's confirmed to be the specifically
-degraded path. Requires a GitHub Personal Access Token, scoped narrowly
-to triggering workflows, stored on the external service. Keep the
-existing `schedule:` trigger in place as a harmless backup.
+**Priority:** low until observed data says otherwise.
 
-**Priority:** high for v6 - this isn't a nice-to-have anymore, it's a
-confirmed, currently-ongoing platform issue directly limiting how often
-the bot actually reacts to price movements, with a validated fix ready
-to implement.
+---
 
 ---
 
@@ -541,37 +521,6 @@ rather than just
 
 ---
 
-### 18. Stamp a bot version on every trade, print it in the summary, and report Brier per version
-
-**Why:** after v5 shipped, the cumulative Brier score (0.6328) blended
-roughly 90 trades from the old v4 logic with a handful from v5, so it
-could not show whether the v5 changes (confidence floor/ceiling,
-shadow-tracking, reporting fixes) helped or hurt. Judging a change
-currently requires manually splitting trades by date, and the summary
-does not say which version produced it. This will come up after every
-future change, so the split should be automatic.
-
-**Proposed fix:**
-  1. A single VERSION constant (e.g. VERSION = "5.0") in one file,
-     read by everything else so it cannot drift out of sync with the code.
-  2. Print the version in the daily summary header
-     (=== Predict Weather Bot v5.0 - 2026-09-30 ===) and on the dashboard.
-  3. Add a bot_version column to the trades and shadow_trades tables,
-     stamped when each trade is opened. Needs the same safe migration
-     pattern used for earlier columns (see db.py's
-     _migrate_add_missing_columns). Backfill existing rows using the
-     v5 go-live date (2026-09-25): earlier rows are "4.0", later rows "5.0".
-  4. Extend src/brier_tracker.py to report per version, e.g.
-     "v5: 14 trades, Brier 0.5x | v4: 93 trades, Brier 0.60", instead of
-     a single blended number.
-
-**Note:** this is not needed to answer today's v4-vs-v5 question. Every
-trade already has an opened_at timestamp, so that split can be done
-retroactively from trades.db or the saved daily summaries.
-
-**Priority:** medium. It should ship with the next code change, so that
-change can be evaluated cleanly from its first trade.
-
 **Dropped the backtest feature entirely (in v2.0).** After finding that
 NOAA doesn't retain the needed forecast bulletin archive beyond about a
 week for free, the feature's original value proposition wasn't
@@ -584,70 +533,6 @@ surface area (qmd percentile field names, eccodes install feasibility)
 remains; the text-bulletin approach is confirmed working in production
 now, which reduces the urgency.
 
-
-## v6 plan (logged 2026-10-21, from the v5 analysis)
-
-Finding: v5 lost $232 on 122 settled trades (v4: $118 on 97). The model is
-biased in one direction (it predicts highs far too low), not merely noisy.
-Corrected Brier is 0.469 (all trades) vs 0.243 base rate vs 0.137 for the
-market price. Suspected cause: nbm.py reads "daily max/min" TXN percentiles
-and picks the column nearest market close without checking whether it is a
-max (00Z) or a min (12Z) column. UNCONFIRMED until the diagnostic runs.
-
-### v6.0 - diagnose and instrument (paper only)
-
-#19 (open) Max/min column diagnostic
-    Print TXNP5 for every column for KAUS and KMDW, and show which column
-    the bot selects for each open market. Confirms or rejects the hypothesis.
-
-#20 (open) Fix the Brier tracker
-    forecast_prob is P(YES), but brier_tracker.py scores it as P(chosen
-    side wins), which is wrong for every NO trade. Score the traded side's
-    probability, and print the market-price Brier next to the model Brier
-    and the base rate. (Reported 0.6235 -> corrected 0.469.)
-
-#21 (open) Record what the model actually used
-    Store, per trade: bot_version (see #18), the full P10-P90 ladder, the
-    NBM column/valid time chosen, and the settlement station's actual high
-    (from the NWS climate report) so error can be measured in degrees F.
-
-#22 (open) Shadow cities
-    Add shadow_cities to config.yaml. For these the bot records forecast,
-    market price and settled outcome, but opens no paper trades. Goal: more
-    data faster, and a wider range of climates to test #19. A city graduates
-    to paper trading only after the model fix is confirmed.
-    Each new city needs: verified settlement station (CLI naming, item #3),
-    Kalshi series ticker, and a check that its market types parse.
-
-#23 (open) Series discovery script
-    New script (e.g. src/list_kalshi_series.py) that lists the daily-high
-    temperature series Kalshi actually offers, with city and station text,
-    so shadow cities are chosen from real data, not guessed tickers.
-    Run it from GitHub Actions and paste the output back.
-
-#5  Fee modeling moves into v6.0 (fees are currently 0 in all P&L).
-
-### v6.1 - fix and calibrate (after v6.0 results)
-
-#24 (open) Fix column selection: use max-temperature columns only for daily
-    highs; match the valid time to the station's local day (watch DST).
-#25 (open) Calibration and market blend: per-city bias correction, fitted
-    probability calibration, and a model/market weighted blend. Filters:
-    price band 6-94 cents and a ~30-point cap on model-vs-market gap.
-    (v5 data: price <=40c was 1 win in 53 trades; >50-point gap was 0 for 40.)
-
-### v6.2 - scale and speed
-
-#1  External pinger for 5-minute scans (already logged).
-#26 (open) Same-day markets using live observations (currently excluded).
-#27 (open) Edge-based position sizing instead of flat $5.
-
-### Go-live gate (all required before real money)
-- 401 on /portfolio/positions fixed
-- >=150 settled trades since the model fix, over >=4 weeks
-- Corrected Brier below base rate and not worse than the market-price Brier
-- Positive ROI after fees
-- Tiny starting size; daily loss limit stays on
 ---
 
 ## Log of resolved issues (for context, not action)
@@ -734,37 +619,3 @@ max (00Z) or a min (12Z) column. UNCONFIRMED until the diagnostic runs.
   P&L chart, per-city breakdown, open/settled positions tables using the
   plain-English trade descriptions, and the Brier self-audit — all
   regenerated automatically after every Price Check run.
-
-  ## Resolved in v6
-
-### 18. Version stamping
-bot_version recorded on trades, shadow trades and market observations; old rows backfilled as v4/v5. (v6.0)
-
-### 19. NBM column diagnostic
-RESOLVED. Root cause: the parser read the 00Z (daily-max) columns as blank, so v4 to v6.0 forecast every high from the overnight minimum. (v6.0 diagnosed, v6.1 fixed)
-
-### 20. Brier tracker scored P(YES) as the traded-side probability
-Fixed. The market-price Brier is now the benchmark. (v6.0)
-
-### 21. Forecast provenance and settlement values
-NBM run, forecast hour and valid time stored on each trade; Kalshi's expiration_value stored at settlement. (v6.0)
-
-### 22. Market observations and shadow cities
-One unbiased model-vs-market row per ticker for every city, including 8 shadow cities. (v6.0)
-
-### 23. Kalshi series discovery script
-Lists all KXHIGH series, their CLI codes and whether they parse in NBM. (v6.0)
-
-### 24. Parser and daily-max column selection
-Parser reads all columns including 3-digit hours; for market date D the bot uses the 00Z column of D+1. (v6.1)
-
-### 25. Whole-degree settlement modeling
-"Greater than s" means s+1 or more, "less than s" means s-1 or less; a full ladder sums to 1. (v6.1)
-
-## Open follow-ups
-- Remove the 5%/95% clamp if the scorecard's unclamped Brier is better.
-- Revisit the 24-hour same-day floor.
-- Add NWS climate-report actual-high integration.
-- Cap the model-vs-market gap (about 30 points); skip contracts at 5¢ or less and 95¢ or more.
-- Fix the 401 on /portfolio/positions (required before live mode).
-- Set up the external pinger (see #1).

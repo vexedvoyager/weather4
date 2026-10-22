@@ -1,5 +1,5 @@
 # =============================================================================
-# Predict Weather Bot v6.0 — Configuration
+# Predict Weather Bot v6.1 — Configuration
 # =============================================================================
 # Version history:
 #   v5 went active: 2026-09-25 (confidence floor/ceiling + shadow-tracking,
@@ -8,7 +8,12 @@
 #   v6.0 went active: 2026-10-22 (diagnostics + instrumentation: Brier tracker
 #     fix, version stamps, forecast provenance, fee modeling, market
 #     observations, shadow cities — see IMPROVEMENTS.md items #5, #18-#23.
-#     Trading behavior is UNCHANGED from v5; the model fix comes in v6.1.)
+#     Trading behavior was UNCHANGED from v5.)
+#   v6.1 went active: 2026-10-22 (THE MODEL FIX: v4-v6.0 forecast every daily
+#     high from NBM's overnight-MINIMUM column because of a parsing bug; v6.1
+#     reads the daily-MAXIMUM column and models whole-degree settlement — see
+#     IMPROVEMENTS.md items #24 and #25. Results from v4-v6.0 are NOT a test
+#     of NBM and are excluded from the headline Brier score.)
 # =============================================================================
 # This is the ONE file you should need to touch regularly. Everything here
 # is plain English settings, not code.
@@ -63,12 +68,50 @@ cities:
 #
 # Pick cities by running the "List Kalshi Series" workflow, then paste its
 # suggested entries here (fill in each timezone). Leave as [] to disable.
-# Example entry (same fields as "cities" above):
-#   - name: "Denver"
-#     kalshi_series_prefix: "KXHIGHDEN"
-#     expected_station: "KDEN"
-#     timezone: "America/Denver"
-shadow_cities: []
+# Chosen from the "List Kalshi Series" output: each has open markets and its
+# settlement station exists in NBM and parses. Chosen for climate variety
+# (desert, mountain, humid Gulf/Southeast, maritime, northern plains).
+# Trim or extend freely; each city adds ~12 markets per day.
+shadow_cities:
+  - name: "Denver"
+    kalshi_series_prefix: "KXHIGHDEN"
+    expected_station: "KDEN"
+    timezone: "America/Denver"
+
+  - name: "Phoenix"
+    kalshi_series_prefix: "KXHIGHTPHX"
+    expected_station: "KPHX"
+    timezone: "America/Phoenix"
+
+  - name: "Seattle"
+    kalshi_series_prefix: "KXHIGHTSEA"
+    expected_station: "KSEA"
+    timezone: "America/Los_Angeles"
+
+  - name: "Atlanta"
+    kalshi_series_prefix: "KXHIGHTATL"
+    expected_station: "KATL"
+    timezone: "America/New_York"
+
+  - name: "Dallas"
+    kalshi_series_prefix: "KXHIGHTDAL"
+    expected_station: "KDFW"          # Kalshi settles Dallas on DFW airport
+    timezone: "America/Chicago"
+
+  - name: "Houston"
+    kalshi_series_prefix: "KXHIGHTHOU"
+    expected_station: "KHOU"          # Hobby, not Bush Intercontinental
+    timezone: "America/Chicago"
+
+  - name: "Boston"
+    kalshi_series_prefix: "KXHIGHTBOS"
+    expected_station: "KBOS"
+    timezone: "America/New_York"
+
+  - name: "Minneapolis"
+    kalshi_series_prefix: "KXHIGHTMIN"
+    expected_station: "KMSP"
+    timezone: "America/Chicago"
 
 # --- FEES (v6.0, item #5) -------------------------------------------------------
 # Estimated Kalshi trading fee = round_up(taker_rate * contracts * P * (1-P)),
