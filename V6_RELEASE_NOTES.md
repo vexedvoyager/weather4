@@ -1,4 +1,15 @@
-# Predict Weather Bot v6.1 — release notes
+# Predict Weather Bot v6.1.1 — release notes
+
+## v6.1.1 — bracket clamp fix (2026-10-22)
+
+The 5%/95% clamp was applied to each END of a "between" bracket before
+subtracting. In a tail bracket both ends hit the same bound, so the bracket
+came out exactly 0.000 (Chicago 68-69F: real 3.3%, reported 0%), and brackets
+near a tail were shrunk (17.3% became 12.5%). Now the bracket probability is
+computed from the raw values and only the RESULT is clamped to [5%, 95%].
+Nothing else changed. Trades opened under v6.1 keep that label; v6.1.1 is
+scored separately.
+
 
 ## v6.1 — the model fix (2026-10-22)
 
