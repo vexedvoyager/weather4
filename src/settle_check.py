@@ -39,21 +39,23 @@ from src.scan_common import build_client
 logger = logging.getLogger("settle_check")
 
 
-def _compute_pnl_cents(side: str, entry_price_cents: int, count: int, outcome: str) -> int:
+def _compute_pnl_cents(
+    side: str, entry_price_cents: int, count: int, outcome: str, fee_cents: int = 0,
+) -> int:
     """
-    Simple win-pays-$1.00/loss-pays-$0 model, matching how Kalshi's
-    binary contracts actually pay out. Does NOT model Kalshi's real fee
-    structure - no confirmed fee formula was available while building
-    this, so real P&L (once live) will be slightly worse than what this
-    reports. See KNOWN_LIMITATIONS.md.
+    Win-pays-$1.00/loss-pays-$0, matching how Kalshi's binary contracts
+    pay out, MINUS the estimated entry fee (v6.0, item #5 - see
+    src/fees.py for the formula and its honest caveat). fee_cents defaults
+    to 0 so pre-v6 trades and shadow trades (no fee modeled) score as before.
+    A void returns the stake and is treated as fee-free.
     """
     if outcome == "void":
         return 0
     won = (side == "yes" and outcome == "yes") or (side == "no" and outcome == "no")
     if won:
-        return count * (100 - entry_price_cents)
+        return count * (100 - entry_price_cents) - fee_cents
     else:
-        return -count * entry_price_cents
+        return -count * entry_price_cents - fee_cents
 
 
 def _fetch_market_result(client, ticker: str):
@@ -63,11 +65,24 @@ def _fetch_market_result(client, ticker: str):
     itself failed (distinct from "not yet resolved", which is a
     successful fetch with an empty result field).
     """
+    result, _value, error = _fetch_market_result_and_value(client, ticker)
+    return result, error
+
+
+def _fetch_market_result_and_value(client, ticker: str):
+    """
+    Like _fetch_market_result(), but also returns the market's
+    `expiration_value` (v6.0, item #21) - Kalshi's record of the value that
+    determined settlement - as a string, or None if the field is absent.
+    Stored verbatim so the model's error can later be measured in degrees
+    against the real observed high; never used for any trading decision.
+    """
     try:
         market = client.get_market(ticker)
-        return market.get("result"), None
+        value = market.get("expiration_value")
+        return market.get("result"), (str(value) if value not in (None, "") else None), None
     except Exception as e:
-        return None, e
+        return None, None, e
 
 
 def run_settle_check(cfg: dict, client=None) -> dict:
@@ -96,15 +111,23 @@ def run_settle_check(cfg: dict, client=None) -> dict:
         summary["checked"] += 1
         ticker = trade["ticker"]
 
-        result, error = _fetch_market_result(client, ticker)
+        result, settlement_value, error = _fetch_market_result_and_value(client, ticker)
         if error is not None:
             logger.warning("settle_check: could not fetch market for ticker=%s: %s", ticker, error)
             summary["still_open"] += 1
             continue
 
         if result in ("yes", "no", "void"):
-            pnl_cents = _compute_pnl_cents(trade["side"], trade["entry_price_cents"], trade["count"], result)
-            db.settle_trade(db_path, trade["id"], outcome=result, pnl_cents=pnl_cents)
+            trade_fee = trade.get("fee_cents") or 0
+            pnl_cents = _compute_pnl_cents(
+                trade["side"], trade["entry_price_cents"], trade["count"], result,
+                fee_cents=trade_fee,
+            )
+            db.settle_trade(
+                db_path, trade["id"], outcome=result, pnl_cents=pnl_cents,
+                fee_cents=0 if result == "void" else trade_fee,
+                settlement_value=settlement_value,
+            )
             summary["settled"] += 1
             logger.info(
                 "settle_check SETTLED id=%d ticker=%s side=%s outcome=%s pnl_cents=%d",
@@ -164,6 +187,21 @@ def run_settle_check(cfg: dict, client=None) -> dict:
         # Unrecognized/still-open shadow results are left pending silently -
         # these are hypothetical trades, not real positions, so they don't
         # need the same loud alerting a real unrecognized result would.
+
+    # --- Market observations (v6.0) -------------------------------------------
+    for obs in db.get_pending_market_observations(db_path):
+        summary["observations_checked"] = summary.get("observations_checked", 0) + 1
+        result, settlement_value, error = _fetch_market_result_and_value(client, obs["ticker"])
+        if error is not None:
+            logger.debug("settle_check: could not fetch observation ticker=%s: %s", obs["ticker"], error)
+            continue
+        if result in ("yes", "no", "void"):
+            db.settle_market_observation(db_path, obs["id"], result, settlement_value)
+            summary["observations_settled"] = summary.get("observations_settled", 0) + 1
+            logger.info(
+                "settle_check OBSERVATION SETTLED ticker=%s outcome=%s settlement_value=%r",
+                obs["ticker"], result, settlement_value,
+            )
 
     logger.info(
         "Settlement check complete. checked=%d settled=%d still_open=%d unrecognized=%d "

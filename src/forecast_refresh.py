@@ -11,6 +11,7 @@ re-reads the same bulletin.
 The price_check.py script (the LIGHT tier) reads what this script caches;
 it does not re-fetch NBM itself.
 """
+import json
 import logging
 import sys
 from collections import Counter
@@ -104,7 +105,12 @@ def run_forecast_refresh(cfg: dict):
     failed_coverage_hours_by_city = {}   # city -> set of hours that had NO NBM coverage
     too_close_hours_by_city = {}         # city -> set of hours rejected by the same-day floor
 
-    for city_cfg in cfg["cities"]:
+    # v6.0 (item #22): shadow-only cities get the same forecast treatment,
+    # so Price Check can record model-vs-market observations for them -
+    # they are simply never traded. See config.yaml's shadow_cities.
+    all_cities = list(cfg["cities"]) + list(cfg.get("shadow_cities") or [])
+
+    for city_cfg in all_cities:
         city = city_cfg["name"]
         try:
             markets = client.get_markets_by_series(city_cfg["kalshi_series_prefix"])
@@ -155,11 +161,13 @@ def run_forecast_refresh(cfg: dict):
                 too_close_hours_by_city.setdefault(city, set()).add(hour)
                 continue
 
-            pct = nbm.get_forecast_for_target_hour(parsed_station, hour)
-            if pct is None:
+            chosen = nbm.get_forecast_with_meta(parsed_station, hour)
+            if chosen is None:
                 rejection_counts["no_nbm_coverage_at_target_hour"] += 1
                 failed_coverage_hours_by_city.setdefault(city, set()).add(hour)
                 continue
+            pct = chosen["values"]
+            valid_dt = nbm.valid_time_utc(run_id, chosen["forecast_hour"])
 
             probs = model_probability_for_market(
                 threshold, pct, cfg["probability_model"]["sigma_multiplier"]
@@ -168,6 +176,9 @@ def run_forecast_refresh(cfg: dict):
             db.upsert_forecast_cache(
                 db_path, ticker, city, probs["clamped"], run_id, description,
                 raw_model_prob=probs["raw"],
+                nbm_forecast_hour=chosen["forecast_hour"],
+                nbm_valid_utc=valid_dt.isoformat() if valid_dt else None,
+                ladder_json=json.dumps(pct),
             )
             markets_cached += 1
 

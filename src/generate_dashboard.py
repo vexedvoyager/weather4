@@ -17,6 +17,7 @@ from pathlib import Path
 from src import brier_tracker, db
 from src.config import load_config, resolve_path
 from src.daily_summary import format_probability, _is_extreme, _actual_outcome_note
+from src.version import BOT_VERSION
 
 
 def _get_all_time_stats(db_path: str) -> dict:
@@ -215,6 +216,7 @@ def generate_dashboard_html(cfg: dict, db_path: str) -> str:
         <div class="brier-grid">
           <div><span class="label">Trades audited</span><span class="value">{brier['n']}</span></div>
           <div><span class="label">Model Brier score</span><span class="value">{brier['model_brier']:.4f}</span></div>
+          <div><span class="label">Market price Brier</span><span class="value">{brier['market_brier']:.4f}</span></div>
           <div><span class="label">Base rate Brier score</span><span class="value">{brier['base_rate_brier']:.4f}</span></div>
           <div><span class="label">Verdict</span><span class="value {verdict_class}">{brier['verdict']}</span></div>
         </div>
@@ -358,7 +360,7 @@ def generate_dashboard_html(cfg: dict, db_path: str) -> str:
 <body>
 <div class="wrap">
 
-  <h1>Predict Weather Bot</h1>
+  <h1>Predict Weather Bot <span style="font-weight:400;opacity:.6">{BOT_VERSION}</span></h1>
   <div class="hero">
     <div class="hero-number {pnl_sign_class}">{_fmt_usd(total_pnl_cents)}</div>
     <div class="hero-label">Total settled P&amp;L, {total_settled} trade(s) settled{f", {win_rate:.0f}% win rate" if win_rate is not None else ""}</div>

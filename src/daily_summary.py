@@ -31,6 +31,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from src import brier_tracker, db
+from src.version import BOT_VERSION
 from src.config import load_config, resolve_path
 
 SPARK_CHARS = "▁▂▃▄▅▆▇█"
@@ -183,7 +184,7 @@ def generate_summary(cfg: dict, date_str: str = None) -> str:
     settled_today = db.get_trades_settled_since(db_path, cutoff_iso)
 
     lines = []
-    lines.append(f"=== Predict Weather Bot — {date_str} ===")
+    lines.append(f"=== Predict Weather Bot {BOT_VERSION} — {date_str} ===")
     lines.append(f"Mode: {cfg['mode'].upper()}")
     lines.append("")
 
@@ -297,11 +298,29 @@ def generate_summary(cfg: dict, date_str: str = None) -> str:
             )
         else:
             warn = " ⚠" if brier_summary["verdict"] == "NO SKILL" else ""
+            market_note = "beats" if brier_summary["beats_market"] else "WORSE than"
             lines.append(
-                f"Model self-audit ({brier_summary['n']} trades): "
-                f"Brier {brier_summary['model_brier']:.4f} vs base rate "
-                f"{brier_summary['base_rate_brier']:.4f} — {brier_summary['verdict']}{warn}"
+                f"Model self-audit ({brier_summary['n']} trades, lower is better): "
+                f"model {brier_summary['model_brier']:.4f} | market price "
+                f"{brier_summary['market_brier']:.4f} | base rate "
+                f"{brier_summary['base_rate_brier']:.4f} — {brier_summary['verdict']}{warn}, "
+                f"{market_note} the market"
             )
+            by_version = brier_summary.get("by_version") or {}
+            if len(by_version) > 1:
+                parts = [
+                    f"{v} {d['model_brier']:.3f}/{d['market_brier']:.3f} (n={d['n']})"
+                    for v, d in by_version.items()
+                ]
+                lines.append("  By version (model/market): " + "  ".join(parts))
+        lines.append("")
+
+    # --- Unbiased scorecard from every observed market (v6.0, item #22) ----------
+    obs_text = brier_tracker.format_observation_brier(
+        brier_tracker.compute_observation_brier(db_path)
+    )
+    if obs_text:
+        lines.append(obs_text)
         lines.append("")
 
     # --- 14-day P&L sparkline --------------------------------------------------

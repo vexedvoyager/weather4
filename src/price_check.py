@@ -15,9 +15,10 @@ import sys
 import uuid
 from datetime import datetime, timezone
 
-from src import alerts, db, edge
+from src import alerts, db, edge, fees
 from src.config import load_config, resolve_path
 from src.market_parsing import build_market_snapshot
+from src.observations import record_market_observations
 from src.paper_broker import PaperBroker
 from src.scan_common import build_client
 from src.settle_check import run_settle_check
@@ -43,6 +44,16 @@ def run_price_check(cfg: dict):
         settle_summary["checked"], settle_summary["settled"],
         settle_summary["still_open"], settle_summary["unrecognized_result"],
     )
+
+    # --- Market observations (v6.0, item #22) ---------------------------------
+    # Record model-vs-market snapshots for EVERY configured market (traded
+    # and shadow-only cities), independent of whether any trade happens -
+    # the unbiased dataset the trades table cannot be. Runs before the
+    # daily-loss-limit early return below so observation never stops.
+    try:
+        record_market_observations(cfg, client, db_path)
+    except Exception:
+        logger.exception("observation pass failed - continuing with trading logic")
 
     # --- Consistency check (skipped in paper mode - see IMPROVEMENTS.md #17) ---
     # In paper mode, the local database holds SIMULATED positions while
@@ -237,10 +248,18 @@ def run_price_check(cfg: dict):
                     client_order_id=client_order_id,
                 )
 
+            fee_cents = fees.kalshi_fee_cents(
+                count, price_cents, cfg.get("fees", {}).get("taker_rate", 0.07)
+            )
             db.insert_trade(
                 db_path, ticker, city, want_side, count, price_cents,
                 model_prob, scores["composite"], cfg["mode"],
                 threshold_description=threshold_description,
+                fee_cents=fee_cents,
+                nbm_run_id=cached.get("nbm_run_id"),
+                nbm_forecast_hour=cached.get("nbm_forecast_hour"),
+                nbm_valid_utc=cached.get("nbm_valid_utc"),
+                ladder_json=cached.get("ladder_json"),
             )
             open_tickers.add(ticker)  # prevent a second buy later in this same run
             total_deployed += cost_cents

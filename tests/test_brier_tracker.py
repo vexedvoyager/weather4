@@ -48,12 +48,72 @@ def test_perfect_model_scores_zero_brier():
 
 
 def test_side_no_win_condition_is_correct():
-    """Buying 'no' and having the market resolve 'no' should count as a win."""
+    """Buying 'no' and having the market resolve 'no' should count as a win.
+
+    forecast_prob is P(YES). A model that says P(YES)=0.2 and sees NO win
+    predicted the traded side's win at 0.8, so Brier = (0.8-1)^2 = 0.04.
+    (Before v6.0 this test used forecast_prob=0.8 - encoding the bug where
+    P(YES) was scored as if it were the traded side's probability.)
+    """
     path = _temp_db()
     for _ in range(35):
-        _settle_trade(path, "no", 0.8, "no")  # predicted no, correct
+        _settle_trade(path, "no", 0.2, "no")  # P(YES)=0.2, NO won
     summary = compute_brier_summary(path)
-    assert abs(summary["model_brier"] - 0.04) < 1e-6  # (0.8-1)^2 = 0.04
+    assert abs(summary["model_brier"] - 0.04) < 1e-6
+
+
+def test_v6_regression_no_trade_with_low_p_yes_is_not_scored_as_confident_loss():
+    """The exact bug found in v5 data: a NO trade whose model P(YES)=0.10
+    that WINS must score as a good prediction, not a terrible one."""
+    path = _temp_db()
+    for _ in range(35):
+        _settle_trade(path, "no", 0.10, "no")
+    summary = compute_brier_summary(path)
+    assert summary["model_brier"] < 0.02   # (0.9 - 1)^2 = 0.01
+    # Old (buggy) scoring would have been (0.10 - 1)^2 = 0.81
+
+
+def test_yes_and_no_trades_are_scored_symmetrically():
+    path = _temp_db()
+    for _ in range(20):
+        _settle_trade(path, "yes", 0.8, "yes")   # right, 0.8 on YES
+    for _ in range(20):
+        _settle_trade(path, "no", 0.2, "no")     # right, 0.8 on NO
+    summary = compute_brier_summary(path)
+    assert abs(summary["model_brier"] - 0.04) < 1e-6
+
+
+def test_market_price_brier_uses_price_paid_for_traded_side():
+    path = _temp_db()
+    for _ in range(35):
+        # entry price 60c for the traded side, which wins: (0.6-1)^2 = 0.16
+        _settle_trade(path, "yes", 0.9, "yes")
+    summary = compute_brier_summary(path)
+    assert abs(summary["market_brier"] - 0.16) < 1e-6
+    assert summary["beats_market"] is True   # model 0.01 < market 0.16
+
+
+def test_beats_market_false_when_model_is_worse():
+    path = _temp_db()
+    for _ in range(35):
+        _settle_trade(path, "yes", 0.99, "no")   # confidently wrong
+    summary = compute_brier_summary(path)
+    assert summary["beats_market"] is False
+
+
+def test_by_version_splits_scores():
+    path = _temp_db()
+    for _ in range(35):
+        _settle_trade(path, "yes", 0.9, "yes")
+    # re-stamp half as v5 to simulate two versions
+    with db.get_connection(path) as conn:
+        conn.execute("UPDATE trades SET bot_version = 'v5' WHERE id <= 10")
+        conn.commit()
+    summary = compute_brier_summary(path)
+    assert set(summary["by_version"]) == {"v5", "v6.0"}
+    assert summary["by_version"]["v5"]["n"] == 10
+    only_v5 = compute_brier_summary(path, bot_version="v5")
+    assert only_v5["n"] == 10
 
 
 def test_insufficient_confidence_level_below_minimum():
@@ -112,8 +172,36 @@ def test_format_summary_shows_insufficient_message():
 
 
 def test_format_summary_flags_no_skill_verdict_prominently():
-    summary = {"n": 100, "model_brier": 0.28, "base_rate_brier": 0.24,
-               "base_rate": 0.5, "verdict": "NO SKILL", "confidence_level": "confident"}
+    summary = {"n": 100, "model_brier": 0.28, "market_brier": 0.14, "base_rate_brier": 0.24,
+               "base_rate": 0.5, "verdict": "NO SKILL", "beats_market": False,
+               "confidence_level": "confident", "by_version": {}}
     text = format_brier_summary(summary)
     assert "NO SKILL" in text
     assert "rebuild" in text.lower()
+
+
+def test_format_summary_shows_market_benchmark():
+    summary = {"n": 100, "model_brier": 0.28, "market_brier": 0.14, "base_rate_brier": 0.24,
+               "base_rate": 0.5, "verdict": "NO SKILL", "beats_market": False,
+               "confidence_level": "confident", "by_version": {}}
+    text = format_brier_summary(summary)
+    assert "0.1400" in text
+    assert "WORSE THAN" in text
+
+
+def test_observation_brier_scores_model_and_market_against_yes_outcome():
+    from src.brier_tracker import compute_observation_brier, format_observation_brier
+    path = _temp_db()
+    # model says 0.9 YES, market 0.5, outcome yes
+    db.insert_market_observation(path, "T1", "Miami", False, "high 90-91°F", 0.9, 0.9, 50, 48, 100)
+    # model says 0.9 YES, market 0.1, outcome no  (shadow city)
+    db.insert_market_observation(path, "T2", "Denver", True, "high > 70°F", 0.9, 0.9, 10, 8, 100)
+    for obs in db.get_pending_market_observations(path):
+        db.settle_market_observation(path, obs["id"], "yes" if obs["ticker"] == "T1" else "no", "91")
+    result = compute_observation_brier(path)
+    assert result["by_city"]["Miami"]["model_brier"] == 0.01      # (0.9-1)^2
+    assert result["by_city"]["Miami"]["market_brier"] == 0.25     # (0.5-1)^2
+    assert result["by_city"]["Denver"]["is_shadow"] is True
+    assert result["by_city"]["Denver"]["model_brier"] == 0.81     # (0.9-0)^2
+    text = format_observation_brier(result)
+    assert "Denver (shadow)" in text and "market closer" in text

@@ -1,10 +1,15 @@
 # =============================================================================
-# Predict Weather Bot v5.0 — Configuration
+# Predict Weather Bot v6.0 — Configuration
 # =============================================================================
-# v5 went active: 2026-09-26 (confidence floor/ceiling + shadow-tracking,
-# rolling-window reporting fix, redesigned daily summary/dashboard - see
-# IMPROVEMENTS.md items #10, #14, #15, #16, #17 for details)
-#
+# Version history:
+#   v5 went active: 2026-09-25 (confidence floor/ceiling + shadow-tracking,
+#     rolling-window reporting fix, redesigned daily summary/dashboard — see
+#     IMPROVEMENTS.md items #10, #14, #15, #16, #17)
+#   v6.0 went active: 2026-10-22 (diagnostics + instrumentation: Brier tracker
+#     fix, version stamps, forecast provenance, fee modeling, market
+#     observations, shadow cities — see IMPROVEMENTS.md items #5, #18-#23.
+#     Trading behavior is UNCHANGED from v5; the model fix comes in v6.1.)
+# =============================================================================
 # This is the ONE file you should need to touch regularly. Everything here
 # is plain English settings, not code.
 # =============================================================================
@@ -48,6 +53,30 @@ cities:
     kalshi_series_prefix: "KXHIGHLAX"   # best-guess prefix, unverified - see IMPROVEMENTS.md
     expected_station: "KLAX"
     timezone: "America/Los_Angeles"
+
+# --- SHADOW CITIES (v6.0, item #22) -------------------------------------------
+# Cities that are FORECAST and OBSERVED but NEVER TRADED. For every market in
+# these cities the bot records the model's probability next to the market's
+# price and, later, the real outcome (see market_observations in the
+# database and the "Model vs market" section of the daily summary). This
+# builds evidence about the model in more climates, at zero risk.
+#
+# Pick cities by running the "List Kalshi Series" workflow, then paste its
+# suggested entries here (fill in each timezone). Leave as [] to disable.
+# Example entry (same fields as "cities" above):
+#   - name: "Denver"
+#     kalshi_series_prefix: "KXHIGHDEN"
+#     expected_station: "KDEN"
+#     timezone: "America/Denver"
+shadow_cities: []
+
+# --- FEES (v6.0, item #5) -------------------------------------------------------
+# Estimated Kalshi trading fee = round_up(taker_rate * contracts * P * (1-P)),
+# charged when a position opens and subtracted from P&L. 0.07 is Kalshi's
+# general fee-schedule rate; CHECK Kalshi's official fee schedule for weather
+# markets and adjust if it differs. Trades before v6.0 were recorded with no fee.
+fees:
+  taker_rate: 0.07
 
 # --- RISK CONTROLS ------------------------------------------------------------
 # These are hard limits. The bot will refuse to exceed them even if the

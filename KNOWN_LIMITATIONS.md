@@ -93,10 +93,17 @@ independently-verified example:**
 
 ## Specific known gaps
 
-- **Settlement P&L doesn't model Kalshi's real fee structure.** No
-  confirmed fee formula was available while building the settlement
-  checker, so it uses a simple win-pays-$1.00/loss-pays-$0 model. Real
-  P&L (once live) will be slightly worse than what paper trading reports.
+- **Fees are an ESTIMATE (v6.0 onward).** Paper P&L now subtracts
+  round_up(0.07 x contracts x P x (1-P)) at entry (see `src/fees.py`).
+  That is Kalshi's general fee-schedule formula as widely documented, but
+  it was NOT confirmed against a weather-specific schedule - check
+  Kalshi's official fee schedule and adjust `fees.taker_rate` in
+  `config.yaml` if it differs. Trades recorded before v6.0 have no fee.
+
+- **"Actual high" is Kalshi's `expiration_value`, if present (v6.0).**
+  Settlement stores that field verbatim (`settlement_value`) but it has
+  not yet been verified to be the observed temperature; reading the NWS
+  climate report directly is a follow-up.
 
 - **No slippage modeling in paper mode.** Assumes fills at the displayed
   ask/bid.

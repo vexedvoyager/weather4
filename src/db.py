@@ -17,6 +17,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+from src.version import BOT_VERSION, V5_START_ISO
+
 logger = logging.getLogger(__name__)
 
 SCHEMA = """
@@ -37,7 +39,13 @@ CREATE TABLE IF NOT EXISTS trades (
     fee_cents INTEGER DEFAULT 0,
     threshold_description TEXT,
     opened_at TEXT NOT NULL,
-    settled_at TEXT
+    settled_at TEXT,
+    bot_version TEXT,
+    nbm_run_id TEXT,
+    nbm_forecast_hour INTEGER,
+    nbm_valid_utc TEXT,
+    ladder_json TEXT,
+    settlement_value TEXT
 );
 
 CREATE TABLE IF NOT EXISTS forecast_cache (
@@ -47,7 +55,10 @@ CREATE TABLE IF NOT EXISTS forecast_cache (
     nbm_run_id TEXT NOT NULL,
     cached_at TEXT NOT NULL,
     threshold_description TEXT,
-    raw_model_prob REAL
+    raw_model_prob REAL,
+    nbm_forecast_hour INTEGER,
+    nbm_valid_utc TEXT,
+    ladder_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS shadow_trades (
@@ -65,6 +76,38 @@ CREATE TABLE IF NOT EXISTS shadow_trades (
     outcome TEXT CHECK(outcome IN ('yes', 'no', 'void', NULL)),
     would_have_pnl_cents INTEGER,
     detected_at TEXT NOT NULL,
+    settled_at TEXT,
+    bot_version TEXT
+);
+
+-- v6.0 (items #22): ONE row per market ticker, recorded the first time
+-- Price Check sees the market with a fresh cached forecast - for EVERY
+-- configured city (traded or shadow-only) regardless of whether a trade
+-- happens. This is the unbiased dataset the real `trades` table cannot
+-- be: trades are selected where the model disagrees most with the market,
+-- which flatters or punishes the model unfairly. Model-vs-market Brier
+-- on THIS table is the honest scorecard.
+CREATE TABLE IF NOT EXISTS market_observations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticker TEXT NOT NULL UNIQUE,
+    city TEXT NOT NULL,
+    is_shadow_city INTEGER NOT NULL DEFAULT 0,
+    threshold_description TEXT,
+    model_prob REAL NOT NULL,          -- clamped P(YES)
+    raw_model_prob REAL,
+    market_yes_cents INTEGER NOT NULL, -- YES ask at observation time
+    market_yes_bid_cents INTEGER,
+    volume_24h INTEGER,
+    nbm_run_id TEXT,
+    nbm_forecast_hour INTEGER,
+    nbm_valid_utc TEXT,
+    ladder_json TEXT,
+    bot_version TEXT,
+    observed_at TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending', 'settled')),
+    outcome TEXT CHECK(outcome IN ('yes', 'no', 'void', NULL)),
+    settlement_value TEXT,
     settled_at TEXT
 );
 
@@ -99,6 +142,8 @@ def init_db(db_path: str):
         conn.commit()
         _migrate_add_missing_columns(conn)
         conn.commit()
+    # Stamp pre-v6 rows with their version (no-op once everything is stamped).
+    backfill_bot_version(db_path)
 
 
 def _migrate_add_missing_columns(conn):
@@ -115,6 +160,17 @@ def _migrate_add_missing_columns(conn):
         ("trades", "threshold_description", "TEXT"),
         ("forecast_cache", "threshold_description", "TEXT"),
         ("forecast_cache", "raw_model_prob", "REAL"),
+        # --- v6.0 ---
+        ("trades", "bot_version", "TEXT"),
+        ("trades", "nbm_run_id", "TEXT"),
+        ("trades", "nbm_forecast_hour", "INTEGER"),
+        ("trades", "nbm_valid_utc", "TEXT"),
+        ("trades", "ladder_json", "TEXT"),
+        ("trades", "settlement_value", "TEXT"),
+        ("forecast_cache", "nbm_forecast_hour", "INTEGER"),
+        ("forecast_cache", "nbm_valid_utc", "TEXT"),
+        ("forecast_cache", "ladder_json", "TEXT"),
+        ("shadow_trades", "bot_version", "TEXT"),
     ]
     for table, column, col_type in migrations:
         existing_columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
@@ -127,24 +183,43 @@ def insert_trade(
     db_path: str, ticker: str, city: str, side: str, count: int,
     entry_price_cents: int, forecast_prob: float, composite_edge_score: float,
     mode: str, status: str = "open", threshold_description: str = None,
+    fee_cents: int = 0, nbm_run_id: str = None, nbm_forecast_hour: int = None,
+    nbm_valid_utc: str = None, ladder_json: str = None, bot_version: str = None,
 ) -> int:
+    """
+    forecast_prob is the model's probability that the market resolves YES
+    (NOT the probability that the chosen side wins) - see
+    src/brier_tracker.py, which had this backwards before v6.0.
+
+    v6.0 additions: fee_cents (estimated entry fee, src/fees.py), and the
+    forecast provenance (which NBM run/column/valid time/percentile ladder
+    produced forecast_prob), plus bot_version.
+    """
+    if bot_version is None:
+        bot_version = BOT_VERSION
     with get_connection(db_path) as conn:
         cur = conn.execute(
             """
             INSERT INTO trades
                 (ticker, city, side, count, entry_price_cents, forecast_prob,
-                 composite_edge_score, mode, status, threshold_description, opened_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 composite_edge_score, mode, status, threshold_description,
+                 opened_at, fee_cents, nbm_run_id, nbm_forecast_hour,
+                 nbm_valid_utc, ladder_json, bot_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (ticker, city, side, count, entry_price_cents, forecast_prob,
              composite_edge_score, mode, status, threshold_description,
-             datetime.now(timezone.utc).isoformat()),
+             datetime.now(timezone.utc).isoformat(), fee_cents, nbm_run_id,
+             nbm_forecast_hour, nbm_valid_utc, ladder_json, bot_version),
         )
         conn.commit()
         return cur.lastrowid
 
 
-def settle_trade(db_path: str, trade_id: int, outcome: str, pnl_cents: int, fee_cents: int = 0):
+def settle_trade(
+    db_path: str, trade_id: int, outcome: str, pnl_cents: int, fee_cents: int = 0,
+    settlement_value: str = None,
+):
     """
     outcome must be one of 'yes', 'no', 'void'. void is NOT the same as a
     loss - it means the stake is returned, pnl_cents should reflect that
@@ -156,10 +231,11 @@ def settle_trade(db_path: str, trade_id: int, outcome: str, pnl_cents: int, fee_
             """
             UPDATE trades
             SET outcome = ?, pnl_cents = ?, fee_cents = ?,
-                status = 'settled', settled_at = ?
+                status = 'settled', settled_at = ?, settlement_value = ?
             WHERE id = ?
             """,
-            (outcome, pnl_cents, fee_cents, datetime.now(timezone.utc).isoformat(), trade_id),
+            (outcome, pnl_cents, fee_cents, datetime.now(timezone.utc).isoformat(),
+             settlement_value, trade_id),
         )
         conn.commit()
         logger.info(
@@ -268,8 +344,13 @@ def daily_pnl_cents(db_path: str, date_str: str) -> int:
 def upsert_forecast_cache(
     db_path: str, ticker: str, city: str, model_prob: float, nbm_run_id: str,
     threshold_description: str = None, raw_model_prob: float = None,
+    nbm_forecast_hour: int = None, nbm_valid_utc: str = None, ladder_json: str = None,
 ):
     """
+    v6.0: nbm_forecast_hour / nbm_valid_utc / ladder_json record WHICH NBM
+    column and percentile ladder produced this probability, so a trade (and
+    the model's later errors) can be traced back to the exact input.
+
     model_prob: the CLAMPED probability (see src/probability.py) - this is
         what drives real trading decisions.
     raw_model_prob: the unclamped computation, kept alongside for
@@ -282,17 +363,22 @@ def upsert_forecast_cache(
             """
             INSERT INTO forecast_cache
                 (ticker, city, model_prob, nbm_run_id, cached_at,
-                 threshold_description, raw_model_prob)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                 threshold_description, raw_model_prob, nbm_forecast_hour,
+                 nbm_valid_utc, ladder_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(ticker) DO UPDATE SET
                 model_prob = excluded.model_prob,
                 nbm_run_id = excluded.nbm_run_id,
                 cached_at = excluded.cached_at,
                 threshold_description = excluded.threshold_description,
-                raw_model_prob = excluded.raw_model_prob
+                raw_model_prob = excluded.raw_model_prob,
+                nbm_forecast_hour = excluded.nbm_forecast_hour,
+                nbm_valid_utc = excluded.nbm_valid_utc,
+                ladder_json = excluded.ladder_json
             """,
             (ticker, city, model_prob, nbm_run_id,
-             datetime.now(timezone.utc).isoformat(), threshold_description, raw_model_prob),
+             datetime.now(timezone.utc).isoformat(), threshold_description, raw_model_prob,
+             nbm_forecast_hour, nbm_valid_utc, ladder_json),
         )
         conn.commit()
 
@@ -303,7 +389,8 @@ def get_cached_forecast(db_path: str, ticker: str, max_age_hours: float) -> dict
     fresh-enough cached forecast exists for this ticker, else None."""
     with get_connection(db_path) as conn:
         row = conn.execute(
-            "SELECT model_prob, nbm_run_id, cached_at, threshold_description, raw_model_prob "
+            "SELECT model_prob, nbm_run_id, cached_at, threshold_description, raw_model_prob, "
+            "nbm_forecast_hour, nbm_valid_utc, ladder_json "
             "FROM forecast_cache WHERE ticker = ?",
             (ticker,),
         ).fetchone()
@@ -320,6 +407,9 @@ def get_cached_forecast(db_path: str, ticker: str, max_age_hours: float) -> dict
         "model_prob": row["model_prob"], "nbm_run_id": row["nbm_run_id"],
         "cached_at": row["cached_at"], "threshold_description": row["threshold_description"],
         "raw_model_prob": row["raw_model_prob"],
+        "nbm_forecast_hour": row["nbm_forecast_hour"],
+        "nbm_valid_utc": row["nbm_valid_utc"],
+        "ladder_json": row["ladder_json"],
     }
 
 
@@ -415,19 +505,21 @@ def has_pending_shadow_trade(db_path: str, ticker: str) -> bool:
 def insert_shadow_trade(
     db_path: str, ticker: str, city: str, side: str, raw_prob: float,
     clamped_prob: float, price_cents: int, threshold_description: str = None,
-    composite_edge_score: float = None,
+    composite_edge_score: float = None, bot_version: str = None,
 ) -> int:
+    if bot_version is None:
+        bot_version = BOT_VERSION
     with get_connection(db_path) as conn:
         cur = conn.execute(
             """
             INSERT INTO shadow_trades
                 (ticker, city, side, raw_prob, clamped_prob, price_cents,
-                 threshold_description, composite_edge_score, detected_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 threshold_description, composite_edge_score, detected_at, bot_version)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (ticker, city, side, raw_prob, clamped_prob, price_cents,
              threshold_description, composite_edge_score,
-             datetime.now(timezone.utc).isoformat()),
+             datetime.now(timezone.utc).isoformat(), bot_version),
         )
         conn.commit()
         return cur.lastrowid
@@ -494,3 +586,108 @@ def get_shadow_trade_summary(db_path: str) -> dict:
             """
         ).fetchone()
         return dict(row)
+
+
+# --- Version backfill (v6.0, item #18) --------------------------------------
+
+def backfill_bot_version(db_path: str) -> dict:
+    """
+    Stamps bot_version onto rows recorded before version stamping existed.
+    Trades/shadow trades opened before the v5 go-live date are labeled
+    "v4"; on/after it, "v5". Only touches rows where bot_version is NULL,
+    so it is safe to run on every startup (a no-op once everything is
+    stamped) and never overwrites a real stamp.
+    """
+    counts = {}
+    with get_connection(db_path) as conn:
+        for table, ts_col in (("trades", "opened_at"), ("shadow_trades", "detected_at")):
+            v4 = conn.execute(
+                f"UPDATE {table} SET bot_version = 'v4' "
+                f"WHERE bot_version IS NULL AND {ts_col} < ?", (V5_START_ISO,),
+            ).rowcount
+            v5 = conn.execute(
+                f"UPDATE {table} SET bot_version = 'v5' "
+                f"WHERE bot_version IS NULL AND {ts_col} >= ?", (V5_START_ISO,),
+            ).rowcount
+            counts[table] = {"v4": v4, "v5": v5}
+        conn.commit()
+    if any(c["v4"] or c["v5"] for c in counts.values()):
+        logger.info("db_backfill bot_version %s", counts)
+    return counts
+
+
+# --- Market observations (v6.0, items #22) ----------------------------------
+
+def has_market_observation(db_path: str, ticker: str) -> bool:
+    with get_connection(db_path) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM market_observations WHERE ticker = ?", (ticker,)
+        ).fetchone()
+        return row is not None
+
+
+def insert_market_observation(
+    db_path: str, ticker: str, city: str, is_shadow_city: bool,
+    threshold_description: str, model_prob: float, raw_model_prob: float,
+    market_yes_cents: int, market_yes_bid_cents: int, volume_24h: int,
+    nbm_run_id: str = None, nbm_forecast_hour: int = None,
+    nbm_valid_utc: str = None, ladder_json: str = None, bot_version: str = None,
+) -> bool:
+    """
+    Records the first model-vs-market snapshot for a ticker. Returns True if
+    a new row was written, False if the ticker was already observed (the
+    UNIQUE constraint makes a second observation impossible by design - one
+    consistent snapshot per market keeps the Brier comparison fair).
+    """
+    if bot_version is None:
+        bot_version = BOT_VERSION
+    with get_connection(db_path) as conn:
+        cur = conn.execute(
+            """
+            INSERT OR IGNORE INTO market_observations
+                (ticker, city, is_shadow_city, threshold_description, model_prob,
+                 raw_model_prob, market_yes_cents, market_yes_bid_cents, volume_24h,
+                 nbm_run_id, nbm_forecast_hour, nbm_valid_utc, ladder_json,
+                 bot_version, observed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (ticker, city, 1 if is_shadow_city else 0, threshold_description,
+             model_prob, raw_model_prob, market_yes_cents, market_yes_bid_cents,
+             volume_24h, nbm_run_id, nbm_forecast_hour, nbm_valid_utc, ladder_json,
+             bot_version, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return cur.rowcount == 1
+
+
+def get_pending_market_observations(db_path: str) -> list:
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM market_observations WHERE status = 'pending'"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def settle_market_observation(
+    db_path: str, observation_id: int, outcome: str, settlement_value: str = None,
+):
+    assert outcome in ("yes", "no", "void"), f"invalid outcome: {outcome}"
+    with get_connection(db_path) as conn:
+        conn.execute(
+            """
+            UPDATE market_observations
+            SET outcome = ?, status = 'settled', settled_at = ?, settlement_value = ?
+            WHERE id = ?
+            """,
+            (outcome, datetime.now(timezone.utc).isoformat(), settlement_value, observation_id),
+        )
+        conn.commit()
+
+
+def get_settled_market_observations(db_path: str) -> list:
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM market_observations WHERE status = 'settled' "
+            "AND outcome IN ('yes', 'no')"
+        ).fetchall()
+        return [dict(r) for r in rows]

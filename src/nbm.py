@@ -134,24 +134,13 @@ def fetch_latest_bulletin(now: datetime = None, timeout: int = 30) -> tuple[str,
     )
 
 
-def parse_station_maxt(bulletin_text: str, station_id: str) -> dict | None:
+def get_station_block(bulletin_text: str, station_id: str) -> list | None:
     """
-    Extract MaxT (daily max temperature) percentile forecasts for a station
-    from an NBP bulletin.
-
-    station_id: 4-character ICAO code, e.g. 'KMDW'
-
-    Returns a dict like:
-        {
-            "forecast_hours": [24, 36, 48, ...],   # hours from model run time
-            "p10": [68, 70, 72, ...],
-            "p25": [...],
-            "p50": [...],
-            "p75": [...],
-            "p90": [...],
-        }
-    or None if the station wasn't found, or if the expected percentile
-    fields weren't present - skip the market rather than guess.
+    Returns the bulletin lines belonging to one station (header line
+    through the line before the next station's header), or None if the
+    station isn't in the bulletin. Shared by parse_station_maxt() and the
+    v6.0 column diagnostic (src/diagnose_columns.py), which needs to show
+    the RAW rows exactly as NOAA published them.
     """
     lines = bulletin_text.splitlines()
 
@@ -183,6 +172,31 @@ def parse_station_maxt(bulletin_text: str, station_id: str) -> dict | None:
             station_end = i
             break
     block = lines[station_start:station_end]
+    return block
+
+
+def parse_station_maxt(bulletin_text: str, station_id: str) -> dict | None:
+    """
+    Extract MaxT (daily max temperature) percentile forecasts for a station
+    from an NBP bulletin.
+
+    station_id: 4-character ICAO code, e.g. 'KMDW'
+
+    Returns a dict like:
+        {
+            "forecast_hours": [24, 36, 48, ...],   # hours from model run time
+            "p10": [68, 70, 72, ...],
+            "p25": [...],
+            "p50": [...],
+            "p75": [...],
+            "p90": [...],
+        }
+    or None if the station wasn't found, or if the expected percentile
+    fields weren't present - skip the market rather than guess.
+    """
+    block = get_station_block(bulletin_text, station_id)
+    if block is None:
+        return None
 
     # Find the forecast-HOUR header row within the station block. This
     # must be the "FHR" row (elapsed hours since the model run started),
@@ -252,21 +266,41 @@ def parse_station_maxt(bulletin_text: str, station_id: str) -> dict | None:
     return result
 
 
-def get_forecast_for_target_hour(
+def valid_time_utc(run_id: str, forecast_hour: int) -> datetime | None:
+    """
+    The UTC moment a forecast column is valid for: the model run time plus
+    the column's forecast hour (FHR). run_id looks like "2026-09-03T01Z".
+
+    v6.0 (item #19/#21): needed to see WHICH time of day each column
+    represents - e.g. a 00Z column is late afternoon/evening in the US
+    (where the daily MAX lives), while a 12Z column is early morning
+    (where the daily MIN lives).
+    """
+    try:
+        date_part, hour_part = run_id.split("T")
+        run_dt = datetime.fromisoformat(date_part).replace(
+            hour=int(hour_part.rstrip("Z")), tzinfo=timezone.utc
+        )
+    except (ValueError, AttributeError):
+        return None
+    return run_dt + timedelta(hours=forecast_hour)
+
+
+def get_forecast_with_meta(
     parsed: dict, target_forecast_hour: int, tolerance_hours: int = 6
 ) -> dict | None:
     """
-    From a parsed station dict, pull the percentile values closest to
-    target_forecast_hour that actually has COMPLETE data.
+    Like get_forecast_for_target_hour(), but also reports WHICH column was
+    chosen. Returns:
+        {"values": {"p10": .., "p25": .., "p50": .., "p75": .., "p90": ..},
+         "column_index": int, "forecast_hour": int}
+    or None if no column within tolerance has complete data.
 
-    CORRECTED: earlier versions checked only the single nearest hour and
-    gave up if that specific column was blank - but MaxT percentiles only
-    print at certain columns, not every step in the ladder. A real
-    production incident showed 4 of 5 cities losing coverage entirely
-    while one succeeded, purely because their nearest hour happened to
-    land on a blank column while the fifth city's didn't. This now tries
-    every candidate hour within tolerance, nearest first, instead of
-    giving up after the first attempt.
+    CORRECTED (earlier): checks every candidate column within tolerance,
+    nearest first, rather than only the single nearest one - MaxT
+    percentiles only print at certain columns, and a real production
+    incident showed 4 of 5 cities losing coverage entirely because their
+    nearest hour happened to be blank.
     """
     hours = parsed.get("forecast_hours")
     if not hours:
@@ -288,6 +322,19 @@ def get_forecast_for_target_hour(
             out[key] = values[idx]
 
         if complete:
-            return out
+            return {"values": out, "column_index": idx, "forecast_hour": hours[idx]}
 
     return None
+
+
+def get_forecast_for_target_hour(
+    parsed: dict, target_forecast_hour: int, tolerance_hours: int = 6
+) -> dict | None:
+    """
+    From a parsed station dict, pull the percentile values closest to
+    target_forecast_hour that actually has COMPLETE data (values only -
+    see get_forecast_with_meta() for the version that also reports which
+    column was used).
+    """
+    result = get_forecast_with_meta(parsed, target_forecast_hour, tolerance_hours)
+    return result["values"] if result else None
